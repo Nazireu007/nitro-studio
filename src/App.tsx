@@ -49,6 +49,9 @@ import { createPrintPlan } from "./lib/printPlan";
 import { downloadCanvasPng, renderPrintCanvas } from "./lib/renderPrint";
 import { FontRecord } from "./fonts/FontCatalog";
 import { FontManager } from "./fonts/FontManager";
+import { hasLowTextContrast, improveContrast, strengthenOutline } from "./text/TextEffects";
+import { fillTextWidth, fitTextInsideArea } from "./text/TextFitEngine";
+import { applyLetteringPreset, letteringPresets, presetCategories, LetteringPresetCategory } from "./text/TextPresetRegistry";
 import {
   addTextObject,
   deleteTextObject,
@@ -56,7 +59,8 @@ import {
   resizeTextObject,
   updateTextObject
 } from "./text/TextController";
-import { TextObject } from "./text/TextModel";
+import { normalizeTextObject, TextCurveMode, TextEffectPreset, TextObject } from "./text/TextModel";
+import { clampTextToSheet, getPrintableText, hasWeakOutlineForPrint, isTextOutsideSheet } from "./text/TypographyService";
 
 type Settings = {
   destinationId: DestinationPreset["id"];
@@ -217,7 +221,7 @@ const loadAutosavedTextObjects = (): TextObject[] => {
     const savedWorkspace = window.localStorage.getItem(WORKSPACE_AUTOSAVE_STORAGE_KEY);
     if (!savedWorkspace) return [];
     const parsed = JSON.parse(savedWorkspace) as { textObjects?: TextObject[] };
-    return Array.isArray(parsed.textObjects) ? parsed.textObjects : [];
+    return Array.isArray(parsed.textObjects) ? parsed.textObjects.map((text) => normalizeTextObject(text)) : [];
   } catch {
     return [];
   }
@@ -567,6 +571,8 @@ export const App = () => {
   const [fonts, setFonts] = useState<FontRecord[]>([]);
   const [fontSearch, setFontSearch] = useState("");
   const [fontCategory, setFontCategory] = useState<string>("Todas");
+  const [letteringDraft, setLetteringDraft] = useState("Meu letreiro");
+  const [letteringCategory, setLetteringCategory] = useState<LetteringPresetCategory>("Sublimação");
   const [lastAutosaveAt, setLastAutosaveAt] = useState<number | null>(null);
   const [pendingCrop, setPendingCrop] = useState<CropArea | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
@@ -607,6 +613,10 @@ export const App = () => {
       })
       .sort((a, b) => (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0) || a.name.localeCompare(b.name));
   }, [fontCategory, fontSearch, fonts]);
+  const visibleLetteringPresets = useMemo(
+    () => letteringPresets.filter((preset) => preset.category === letteringCategory),
+    [letteringCategory]
+  );
   const currentMission = useMemo(
     () => missionOptions.find((mission) => mission.id === activeMission) ?? null,
     [activeMission]
@@ -1276,6 +1286,28 @@ export const App = () => {
     setMessage("Texto adicionado. Dê dois cliques na folha para editar direto.");
   };
 
+  const createLetteringFromPreset = (presetId: TextEffectPreset, content = letteringDraft) => {
+    const sheetWidth = plan?.sheetPx.width ?? Math.round((sheet.widthMm / 25.4) * settings.dpi);
+    const sheetHeight = plan?.sheetPx.height ?? Math.round((sheet.heightMm / 25.4) * settings.dpi);
+    const typedContent = content.trim() || "Meu letreiro";
+    const base = normalizeTextObject({
+      ...addTextObject([], sheetWidth, sheetHeight)[0],
+      content: typedContent,
+      width: Math.round(sheetWidth * 0.62),
+      fontSize: Math.max(44, Math.round(sheetWidth * 0.055))
+    }, sheetWidth, sheetHeight);
+    const created = applyLetteringPreset(base, presetId);
+    updateTextObjects((current) => [...current, created]);
+    setSelectedTextId(created.id);
+    setEditingTextId(null);
+    setMessage("Letreiro criado com preset real e totalmente editável.");
+  };
+
+  const createLetteringFromWizard = () => {
+    const preset = visibleLetteringPresets[0] ?? letteringPresets[0];
+    createLetteringFromPreset(preset.id);
+  };
+
   const updateSelectedText = (patch: Partial<TextObject>) => {
     if (!selectedText) return;
     updateTextObjects((current) => updateTextObject(current, selectedText.id, patch));
@@ -1299,24 +1331,21 @@ export const App = () => {
 
   const fitSelectedTextToArea = () => {
     if (!selectedText || !plan) return;
-    const target = plan.targetPx;
-    updateTextObjects((current) =>
-      updateTextObject(current, selectedText.id, {
-        x: Math.round(target.x + target.width / 2),
-        y: Math.round(target.y + target.height / 2),
-        width: Math.round(target.width * 0.86),
-        fontSize: Math.max(18, Math.round(Math.min(target.width / Math.max(4, selectedText.content.length * 0.52), target.height * 0.28)))
-      })
-    );
+    updateTextObjects((current) => updateTextObject(current, selectedText.id, fitTextInsideArea(selectedText, plan.targetPx)));
     setMessage("Texto encaixado visualmente na área útil.");
   };
 
   const fillSelectedTextWidth = () => {
     if (!selectedText || !plan) return;
     const width = Math.round(plan.targetPx.width * 0.9);
-    const fontSize = Math.max(14, Math.round(width / Math.max(4, selectedText.content.replace(/\s+/g, "").length * 0.56)));
-    updateSelectedText({ width, fontSize });
+    updateSelectedText(fillTextWidth(selectedText, width));
     setMessage("Texto preparado para preencher a largura sem distorcer letras.");
+  };
+
+  const applyPresetToSelectedText = (presetId: TextEffectPreset) => {
+    if (!selectedText) return;
+    updateTextObjects((current) => current.map((item) => (item.id === selectedText.id ? applyLetteringPreset(item, presetId) : item)));
+    setMessage("Efeito aplicado como propriedades editáveis do texto.");
   };
 
   const selectFontForText = (font: FontRecord) => {
@@ -1345,6 +1374,16 @@ export const App = () => {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não consegui importar a fonte.");
     }
+  };
+
+  const deleteImportedFont = async (font: FontRecord) => {
+    if (font.source !== "imported") return;
+    await fontManagerRef.current.deleteImportedFont(font);
+    setFonts((current) => current.filter((item) => item.id !== font.id));
+    updateTextObjects((current) =>
+      current.map((text) => (text.fontFamily === font.family ? { ...text, fontFamily: "Arial" } : text))
+    );
+    setMessage("Fonte importada excluída deste navegador. Textos que usavam essa fonte foram substituídos por Arial.");
   };
 
   const handleTextPointerDown = (text: TextObject, event: PointerEvent<HTMLDivElement>) => {
@@ -1971,6 +2010,49 @@ export const App = () => {
       });
     }
 
+    if (selectedText && plan && isTextOutsideSheet(selectedText, plan.sheetPx.width, plan.sheetPx.height)) {
+      items.push({
+        problem: "Texto fora da folha",
+        cause: "Parte do letreiro está passando da área imprimível.",
+        recommendation: "Reposicione o texto inteiro dentro da página sem alterar o conteúdo.",
+        actionLabel: "Trazer para a folha",
+        resolve: () =>
+          updateTextObjects((current) =>
+            updateTextObject(current, selectedText.id, clampTextToSheet(selectedText, plan.sheetPx.width, plan.sheetPx.height))
+          )
+      });
+    }
+
+    if (selectedText && hasWeakOutlineForPrint(selectedText, settings.dpi)) {
+      items.push({
+        problem: "Contorno fino para impressão",
+        cause: "O contorno pode desaparecer depois da sublimação ou em imagem espelhada.",
+        recommendation: "Aumente o contorno de forma não destrutiva.",
+        actionLabel: "Reforçar contorno",
+        resolve: () => updateTextObjects((current) => updateTextObject(current, selectedText.id, strengthenOutline(selectedText, settings.dpi)))
+      });
+    }
+
+    if (selectedText && hasLowTextContrast(selectedText)) {
+      items.push({
+        problem: "Contraste fraco no letreiro",
+        cause: "A cor do texto pode se misturar com contorno ou fundo.",
+        recommendation: "Aplicar contraste seguro para leitura em impressão.",
+        actionLabel: "Melhorar contraste",
+        resolve: () => updateTextObjects((current) => updateTextObject(current, selectedText.id, improveContrast(selectedText)))
+      });
+    }
+
+    if (selectedText && selectedText.fontSize < 22) {
+      items.push({
+        problem: "Texto pequeno demais",
+        cause: "Letras muito pequenas perdem detalhe em tecidos e canecas.",
+        recommendation: "Aumente o tamanho preservando a largura atual.",
+        actionLabel: "Aumentar texto",
+        resolve: () => updateSelectedText({ fontSize: 36 })
+      });
+    }
+
     if (plan?.scaleFactor && plan.scaleFactor < 0.98) {
       items.push({
         problem: "Destino maior que a folha",
@@ -2032,7 +2114,7 @@ export const App = () => {
     }
 
     return items.slice(0, 4);
-  }, [pendingCrop, plan, settings, sourceImage, textObjects.length]);
+  }, [pendingCrop, plan, selectedText, settings, sourceImage, textObjects.length]);
 
   const simulationItems = useMemo(() => {
     if (!plan) return [];
@@ -2769,6 +2851,35 @@ export const App = () => {
               accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
               onChange={handleFontImport}
             />
+            <div className="lettering-wizard">
+              <div>
+                <strong>Criar meu letreiro</strong>
+                <small>Gere variações por regras reais, sem converter em imagem.</small>
+              </div>
+              <label className="field">
+                <span>Texto</span>
+                <input value={letteringDraft} onChange={(event) => setLetteringDraft(event.target.value)} placeholder="Nome, frase ou marca" />
+              </label>
+              <div className="text-row">
+                <label className="field">
+                  <span>Categoria</span>
+                  <select value={letteringCategory} onChange={(event) => setLetteringCategory(event.target.value as LetteringPresetCategory)}>
+                    {presetCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                </label>
+                <button className="text-button" onClick={createLetteringFromWizard}>
+                  <WandSparkles size={15} />
+                  Criar
+                </button>
+              </div>
+              <div className="preset-strip">
+                {visibleLetteringPresets.map((preset) => (
+                  <button key={preset.id} type="button" onClick={() => createLetteringFromPreset(preset.id)}>
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+            </div>
             {selectedText ? (
               <div className="text-controls">
                 <label className="field">
@@ -2805,19 +2916,62 @@ export const App = () => {
                   <button className={selectedText.bold ? "tool-button is-active" : "tool-button"} onClick={() => updateSelectedText({ bold: !selectedText.bold })}>B</button>
                   <button className={selectedText.italic ? "tool-button is-active" : "tool-button"} onClick={() => updateSelectedText({ italic: !selectedText.italic })}>I</button>
                   <button className={selectedText.underline ? "tool-button is-active" : "tool-button"} onClick={() => updateSelectedText({ underline: !selectedText.underline })}>U</button>
+                  <button className={selectedText.mirror ? "tool-button is-active" : "tool-button"} onClick={() => updateSelectedText({ mirror: !selectedText.mirror })}>Espelhar texto</button>
                   <button className="tool-button" onClick={fitSelectedTextToArea}>Encaixar</button>
                   <button className="tool-button" onClick={fillSelectedTextWidth}>Largura</button>
                   <button className="tool-button" onClick={duplicateSelectedText}>Duplicar</button>
                 </div>
+                <div className="text-row">
+                  <label className="field">
+                    <span>Curvar</span>
+                    <select value={selectedText.curve.mode} onChange={(event) => updateSelectedText({ curve: { ...selectedText.curve, mode: event.target.value as TextCurveMode, intensity: event.target.value === "straight" ? 0 : Math.max(selectedText.curve.intensity, 18) } })}>
+                      <option value="straight">Reto</option>
+                      <option value="arc-up">Arco para cima</option>
+                      <option value="arc-down">Arco para baixo</option>
+                      <option value="circle">Círculo</option>
+                      <option value="semicircle">Semicírculo</option>
+                      <option value="wave">Onda leve</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Efeitos</span>
+                    <select value={selectedText.effectPreset} onChange={(event) => applyPresetToSelectedText(event.target.value as TextEffectPreset)}>
+                      {letteringPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+                    </select>
+                  </label>
+                </div>
                 <details className="more-adjustments">
                   <summary>Mais ajustes</summary>
+                  <div className="text-row">
+                    <label className="field">
+                      <span>Caixa</span>
+                      <select value={selectedText.caseMode} onChange={(event) => updateSelectedText({ caseMode: event.target.value as TextObject["caseMode"] })}>
+                        <option value="normal">Normal</option>
+                        <option value="upper">Caixa alta</option>
+                        <option value="lower">Caixa baixa</option>
+                        <option value="capitalize">Capitalizar</option>
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Linha</span>
+                      <input type="number" min="0.8" max="2.4" step="0.05" value={selectedText.lineHeight} onChange={(event) => updateSelectedText({ lineHeight: Number(event.target.value) })} />
+                    </label>
+                  </div>
                   <label className="range-field">
                     <span>Espaçamento <strong>{selectedText.letterSpacing}px</strong></span>
                     <input type="range" min="-4" max="28" value={selectedText.letterSpacing} onChange={(event) => updateSelectedText({ letterSpacing: Number(event.target.value) })} />
                   </label>
                   <label className="range-field">
+                    <span>Intensidade da curva <strong>{selectedText.curve.intensity}px</strong></span>
+                    <input type="range" min="0" max="120" value={selectedText.curve.intensity} onChange={(event) => updateSelectedText({ curve: { ...selectedText.curve, intensity: Number(event.target.value) } })} />
+                  </label>
+                  <label className="range-field">
                     <span>Rotação <strong>{selectedText.rotation}°</strong></span>
                     <input type="range" min="-180" max="180" value={selectedText.rotation} onChange={(event) => updateSelectedText({ rotation: Number(event.target.value) })} />
+                  </label>
+                  <label className="range-field">
+                    <span>Opacidade <strong>{Math.round(selectedText.opacity * 100)}%</strong></span>
+                    <input type="range" min="0.1" max="1" step="0.05" value={selectedText.opacity} onChange={(event) => updateSelectedText({ opacity: Number(event.target.value) })} />
                   </label>
                   <label className="toggle">
                     <input type="checkbox" checked={selectedText.outline.enabled} onChange={(event) => updateSelectedText({ outline: { ...selectedText.outline, enabled: event.target.checked } })} />
@@ -2837,6 +2991,38 @@ export const App = () => {
                     <input type="checkbox" checked={selectedText.shadow.enabled} onChange={(event) => updateSelectedText({ shadow: { ...selectedText.shadow, enabled: event.target.checked } })} />
                     Sombra
                   </label>
+                  <label className="toggle">
+                    <input type="checkbox" checked={selectedText.doubleOutline.enabled} onChange={(event) => updateSelectedText({ doubleOutline: { ...selectedText.doubleOutline, enabled: event.target.checked, width: event.target.checked ? Math.max(10, selectedText.doubleOutline.width) : selectedText.doubleOutline.width } })} />
+                    Contorno duplo
+                  </label>
+                  {selectedText.doubleOutline.enabled && (
+                    <div className="text-row">
+                      <label className="field">
+                        <span>Cor 2º contorno</span>
+                        <input type="color" value={selectedText.doubleOutline.color} onChange={(event) => updateSelectedText({ doubleOutline: { ...selectedText.doubleOutline, color: event.target.value } })} />
+                      </label>
+                      <label className="field">
+                        <span>Espessura 2</span>
+                        <input type="number" min="0" max="80" value={selectedText.doubleOutline.width} onChange={(event) => updateSelectedText({ doubleOutline: { ...selectedText.doubleOutline, width: Number(event.target.value) } })} />
+                      </label>
+                    </div>
+                  )}
+                  <label className="toggle">
+                    <input type="checkbox" checked={selectedText.gradient.enabled} onChange={(event) => updateSelectedText({ gradient: { ...selectedText.gradient, enabled: event.target.checked } })} />
+                    Degradê
+                  </label>
+                  {selectedText.gradient.enabled && (
+                    <div className="text-row">
+                      <label className="field">
+                        <span>Cor inicial</span>
+                        <input type="color" value={selectedText.gradient.from} onChange={(event) => updateSelectedText({ gradient: { ...selectedText.gradient, from: event.target.value } })} />
+                      </label>
+                      <label className="field">
+                        <span>Cor final</span>
+                        <input type="color" value={selectedText.gradient.to} onChange={(event) => updateSelectedText({ gradient: { ...selectedText.gradient, to: event.target.value } })} />
+                      </label>
+                    </div>
+                  )}
                 </details>
                 <div className="font-manager">
                   <div className="text-row">
@@ -2863,6 +3049,19 @@ export const App = () => {
                         <span>Nitro Studio</span>
                         <small>{font.name}</small>
                         <button type="button" className={font.favorite ? "font-star is-active" : "font-star"} onClick={(event) => { event.stopPropagation(); toggleFontFavorite(font); }}>★</button>
+                        {font.source === "imported" && (
+                          <button
+                            type="button"
+                            className="font-remove"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void deleteImportedFont(font);
+                            }}
+                            aria-label={`Excluir fonte ${font.name}`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -3441,6 +3640,16 @@ export const App = () => {
               <input type="color" value={selectedText.color} onChange={(event) => updateSelectedText({ color: event.target.value })} aria-label="Cor" />
               <button className={selectedText.bold ? "is-active" : ""} onClick={() => updateSelectedText({ bold: !selectedText.bold })}>B</button>
               <button className={selectedText.italic ? "is-active" : ""} onClick={() => updateSelectedText({ italic: !selectedText.italic })}>I</button>
+              <select value={selectedText.curve.mode} onChange={(event) => updateSelectedText({ curve: { ...selectedText.curve, mode: event.target.value as TextCurveMode, intensity: event.target.value === "straight" ? 0 : Math.max(selectedText.curve.intensity, 18) } })} aria-label="Curvar">
+                <option value="straight">Reto</option>
+                <option value="arc-up">Arco ↑</option>
+                <option value="arc-down">Arco ↓</option>
+                <option value="wave">Onda</option>
+                <option value="circle">Círculo</option>
+              </select>
+              <select value={selectedText.effectPreset} onChange={(event) => applyPresetToSelectedText(event.target.value as TextEffectPreset)} aria-label="Efeitos">
+                {letteringPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+              </select>
               <button onClick={fitSelectedTextToArea}>Encaixar</button>
               <button onClick={duplicateSelectedText}>Duplicar</button>
               <button className="danger-inline" onClick={deleteSelectedText}>Excluir</button>
@@ -3495,11 +3704,20 @@ export const App = () => {
                           fontStyle: text.italic ? "italic" : "normal",
                           textDecoration: text.underline ? "underline" : "none",
                           textAlign: text.align,
+                          lineHeight: text.lineHeight,
                           letterSpacing: `${text.letterSpacing * currentPreviewScale}px`,
                           opacity: text.opacity,
-                          transform: `translate(-50%, -50%) rotate(${text.rotation + (pageFlipped ? 180 : 0)}deg)`,
+                          transform: `translate(-50%, -50%) rotate(${text.rotation + (pageFlipped ? 180 : 0)}deg) scaleX(${text.mirror ? -1 : 1})`,
+                          background: text.background.enabled ? text.background.color : text.gradient.enabled ? `linear-gradient(90deg, ${text.gradient.from}, ${text.gradient.to})` : "transparent",
+                          borderRadius: text.background.enabled ? `${text.background.radius * currentPreviewScale}px` : undefined,
+                          padding: text.background.enabled ? `${text.background.padding * currentPreviewScale}px` : "3px",
+                          backgroundClip: text.gradient.enabled && !text.background.enabled ? "text" : undefined,
+                          WebkitBackgroundClip: text.gradient.enabled && !text.background.enabled ? "text" : undefined,
+                          WebkitTextFillColor: text.gradient.enabled && !text.background.enabled ? "transparent" : undefined,
                           textShadow: text.shadow.enabled ? `${text.shadow.offsetX * currentPreviewScale}px ${text.shadow.offsetY * currentPreviewScale}px ${text.shadow.blur * currentPreviewScale}px ${text.shadow.color}` : "none",
-                          WebkitTextStroke: text.outline.enabled ? `${text.outline.width * currentPreviewScale}px ${text.outline.color}` : "0 transparent"
+                          WebkitTextStroke: text.outline.enabled ? `${text.outline.width * currentPreviewScale}px ${text.outline.color}` : "0 transparent",
+                          filter: text.glow.enabled ? `drop-shadow(0 0 ${Math.max(2, text.glow.blur * currentPreviewScale)}px ${text.glow.color})` : undefined,
+                          boxShadow: text.doubleOutline.enabled ? `0 0 0 ${Math.max(1, text.doubleOutline.width * currentPreviewScale * 0.45)}px ${text.doubleOutline.color}` : undefined
                         }}
                         onPointerDown={(event) => editingTextId === text.id ? undefined : handleTextPointerDown(text, event)}
                         onPointerMove={handleTextPointerMove}
@@ -3520,7 +3738,7 @@ export const App = () => {
                             setEditingTextId(null);
                           }}
                         >
-                          {text.content}
+                          {editingTextId === text.id ? text.content : getPrintableText(text)}
                         </span>
                         {selectedTextId === text.id && editingTextId !== text.id && (
                           <button

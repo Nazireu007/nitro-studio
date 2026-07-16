@@ -877,11 +877,61 @@ button:disabled {
 }
 
 .text-controls,
+.lettering-wizard,
 .font-manager,
 .font-list,
 .more-adjustments {
   display: grid;
   gap: 10px;
+}
+
+.lettering-wizard {
+  padding: 10px;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(240, 253, 250, 0.92), rgba(255, 255, 255, 0.94));
+}
+
+.lettering-wizard strong {
+  display: block;
+  color: #101827;
+  font-size: 0.96rem;
+}
+
+.lettering-wizard small {
+  color: #667085;
+  font-size: 0.75rem;
+  font-weight: 780;
+}
+
+.lettering-wizard .text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  color: #0f766e;
+  background: #ecfdf5;
+  border-color: rgba(15, 118, 110, 0.24);
+}
+
+.preset-strip {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.preset-strip button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 999px;
+  color: #0f766e;
+  background: #ffffff;
+  font-size: 0.77rem;
+  font-weight: 900;
 }
 
 .text-controls textarea {
@@ -986,6 +1036,20 @@ button:disabled {
   color: #f59e0b;
   border-color: rgba(245, 158, 11, 0.35);
   background: #fffbeb;
+}
+
+.font-remove {
+  position: absolute;
+  right: 9px;
+  bottom: 8px;
+  display: inline-grid;
+  width: 28px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid rgba(190, 18, 60, 0.22);
+  border-radius: 8px;
+  color: #be123c;
+  background: #fff1f2;
 }
 
 .danger-button,
@@ -1637,7 +1701,7 @@ button:disabled {
 
 .stage-text-toolbar {
   display: grid;
-  grid-template-columns: minmax(160px, 1.3fr) minmax(120px, 0.8fr) 72px 44px repeat(5, auto);
+  grid-template-columns: minmax(150px, 1.2fr) minmax(120px, 0.75fr) 70px 44px 40px 40px minmax(92px, 0.55fr) minmax(118px, 0.68fr) repeat(3, auto);
   gap: 7px;
   align-items: center;
   padding: 8px 10px;
