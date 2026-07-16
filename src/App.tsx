@@ -51,7 +51,7 @@ import { FontRecord } from "./fonts/FontCatalog";
 import { FontManager } from "./fonts/FontManager";
 import { hasLowTextContrast, improveContrast, strengthenOutline } from "./text/TextEffects";
 import { fillTextWidth, fitTextInsideArea } from "./text/TextFitEngine";
-import { applyLetteringPreset, letteringPresets, presetCategories, LetteringPresetCategory } from "./text/TextPresetRegistry";
+import { applyLetteringPreset, letteringPresets, presetCategories, stylePackPaletteColors, LetteringPresetCategory } from "./text/TextPresetRegistry";
 import {
   addTextObject,
   deleteTextObject,
@@ -578,8 +578,9 @@ const textColorPalette = [
   "#be185d",
   "#fb7185",
   "#92400e",
-  "#78350f"
-];
+  "#78350f",
+  ...stylePackPaletteColors
+].filter((color, index, colors) => colors.findIndex((item) => item.toLowerCase() === color.toLowerCase()) === index);
 
 type TextStyleDraft = {
   fontFamily: string;

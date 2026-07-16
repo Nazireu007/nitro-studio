@@ -1,4 +1,6 @@
-import { TextEffectPreset, TextObject } from "./TextModel";
+import stylePackPalettes from "./stylePack/palettes.json";
+import stylePackData from "./stylePack/lettering_styles.json";
+import { TextCurveMode, TextDecorationName, TextEffectPreset, TextObject } from "./TextModel";
 
 export type LetteringPresetCategory =
   | "Infantil"
@@ -9,7 +11,10 @@ export type LetteringPresetCategory =
   | "Neon"
   | "Retrô"
   | "Romântico"
-  | "Sublimação";
+  | "Sublimação"
+  | "Impacto"
+  | "Simples"
+  | "Decorativa";
 
 export type LetteringPreset = {
   id: TextEffectPreset;
@@ -18,7 +23,70 @@ export type LetteringPreset = {
   description: string;
 };
 
-export const letteringPresets: LetteringPreset[] = [
+type StylePackPreset = {
+  id: string;
+  name: string;
+  category: LetteringPresetCategory;
+  fontFamily: string;
+  fontWeight: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  shadow?: {
+    enabled?: boolean;
+    color?: string;
+    blur?: number;
+    offsetX?: number;
+    offsetY?: number;
+  };
+  gradient?: string[] | null;
+  curve?: {
+    type?: string;
+    amount?: number;
+  };
+  letterSpacing?: number;
+  decorations?: string[];
+};
+
+const stylePackPresets = (stylePackData as { presets: StylePackPreset[] }).presets;
+
+const decorationNames = new Set<TextDecorationName>([
+  "burst",
+  "confetti",
+  "crown",
+  "fireworks",
+  "hearts",
+  "leaves",
+  "sparkles",
+  "stars"
+]);
+
+const normalizeDecoration = (name: string): TextDecorationName | null => {
+  const normalized = name.replace(/\.svg$/i, "") as TextDecorationName;
+  return decorationNames.has(normalized) ? normalized : null;
+};
+
+const mapStylePackCurve = (type?: string): TextCurveMode => {
+  if (type === "arcUp") return "arc-up";
+  if (type === "arcDown") return "arc-down";
+  if (type === "wave") return "wave";
+  if (type === "circle") return "circle";
+  if (type === "semicircle") return "semicircle";
+  return "straight";
+};
+
+export const stylePackPaletteColors = Array.from(
+  new Set(Object.values(stylePackPalettes as Record<string, string[]>).flat())
+);
+
+const stylePackLetteringPresets: LetteringPreset[] = stylePackPresets.map((preset) => ({
+  id: preset.id,
+  name: preset.name,
+  category: preset.category,
+  description: `Style Pack ${preset.category}: ${preset.fontFamily}, contorno ${preset.strokeWidth}px e acabamento editável.`
+}));
+
+const builtInLetteringPresets: LetteringPreset[] = [
   { id: "neon", name: "Letreiro neon", category: "Neon", description: "Brilho forte para arte escura ou tecnológica." },
   { id: "sport", name: "Esportivo", category: "Esportivo", description: "Impacto, contorno duplo e sombra curta." },
   { id: "kids", name: "Infantil colorido", category: "Infantil", description: "Cores vivas, fundo leve e leitura fácil." },
@@ -39,7 +107,70 @@ export const letteringPresets: LetteringPreset[] = [
   { id: "script-love", name: "Nome romântico", category: "Romântico", description: "Curva delicada, moldura suave e brilho leve." }
 ];
 
+export const letteringPresets: LetteringPreset[] = [...builtInLetteringPresets, ...stylePackLetteringPresets];
+
 export const presetCategories = Array.from(new Set(letteringPresets.map((preset) => preset.category)));
+
+const applyStylePackPreset = (base: TextObject, shared: Partial<TextObject>, preset: StylePackPreset): TextObject => {
+  const curveMode = mapStylePackCurve(preset.curve?.type);
+  const gradientColors = preset.gradient?.filter(Boolean) ?? [];
+  const decorations = (preset.decorations ?? [])
+    .map(normalizeDecoration)
+    .filter((item): item is TextDecorationName => Boolean(item));
+  const shadowEnabled = Boolean(preset.shadow?.enabled);
+  const hasOutline = preset.strokeWidth > 0;
+  const hasGlow = shadowEnabled && (preset.shadow?.blur ?? 0) >= 12;
+
+  return {
+    ...base,
+    ...shared,
+    effectPreset: preset.id,
+    fontFamily: preset.fontFamily,
+    color: preset.fill,
+    bold: preset.fontWeight >= 700,
+    italic: false,
+    caseMode: preset.category === "Esportivo" || preset.category === "Impacto" || preset.category === "Tecnologia" ? "upper" : base.caseMode,
+    letterSpacing: preset.letterSpacing ?? 0,
+    outline: {
+      enabled: hasOutline,
+      color: preset.stroke,
+      width: preset.strokeWidth
+    },
+    doubleOutline: {
+      enabled: preset.id === "contorno_duplo",
+      color: preset.shadow?.color ?? preset.stroke,
+      width: preset.id === "contorno_duplo" ? Math.max(10, preset.strokeWidth + 5) : 0
+    },
+    shadow: {
+      enabled: shadowEnabled,
+      color: preset.shadow?.color ?? "rgba(15, 23, 42, 0.26)",
+      blur: preset.shadow?.blur ?? 0,
+      offsetX: preset.shadow?.offsetX ?? 0,
+      offsetY: preset.shadow?.offsetY ?? 0,
+      long: (preset.shadow?.blur ?? 0) === 0 && Math.max(Math.abs(preset.shadow?.offsetX ?? 0), Math.abs(preset.shadow?.offsetY ?? 0)) >= 6
+    },
+    glow: {
+      enabled: hasGlow,
+      color: preset.shadow?.color ?? preset.fill,
+      blur: preset.shadow?.blur ?? 0
+    },
+    gradient: {
+      enabled: gradientColors.length >= 2,
+      from: gradientColors[0] ?? preset.fill,
+      to: gradientColors[gradientColors.length - 1] ?? preset.fill,
+      angle: 0
+    },
+    decorations,
+    curve: {
+      ...base.curve,
+      mode: curveMode,
+      intensity: curveMode === "straight" ? 0 : Math.max(18, Math.round((preset.curve?.amount ?? 0) * 2)),
+      radius: Math.max(base.width * 0.7, 180),
+      spacing: preset.letterSpacing ?? 0,
+      invert: false
+    }
+  };
+};
 
 export const applyLetteringPreset = (text: TextObject, presetId: TextEffectPreset): TextObject => {
   const base: TextObject = {
@@ -54,8 +185,12 @@ export const applyLetteringPreset = (text: TextObject, presetId: TextEffectPrese
     frame: { ...base.frame, enabled: false, style: "none" as const },
     glow: { ...base.glow, enabled: false, blur: 0 },
     gradient: { ...base.gradient, enabled: false },
+    decorations: [],
     shadow: { ...base.shadow, enabled: true, long: false, blur: 8, offsetX: 7, offsetY: 7 }
   };
+
+  const stylePackPreset = stylePackPresets.find((preset) => preset.id === presetId);
+  if (stylePackPreset) return applyStylePackPreset(base, shared, stylePackPreset);
 
   if (presetId === "neon") {
     return {

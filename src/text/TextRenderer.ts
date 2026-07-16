@@ -200,6 +200,111 @@ const drawTextFrame = (ctx: CanvasRenderingContext2D, text: TextObject, blockHei
   ctx.restore();
 };
 
+const drawStar = (ctx: CanvasRenderingContext2D, x: number, y: number, outer: number, inner: number, points = 5) => {
+  ctx.beginPath();
+  for (let index = 0; index < points * 2; index += 1) {
+    const radius = index % 2 === 0 ? outer : inner;
+    const angle = -Math.PI / 2 + (index * Math.PI) / points;
+    const px = x + Math.cos(angle) * radius;
+    const py = y + Math.sin(angle) * radius;
+    if (index === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+};
+
+const drawHeart = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+  const top = size * 0.28;
+  ctx.beginPath();
+  ctx.moveTo(x, y + size * 0.35);
+  ctx.bezierCurveTo(x - size, y - top, x - size * 0.55, y - size * 0.78, x, y - size * 0.28);
+  ctx.bezierCurveTo(x + size * 0.55, y - size * 0.78, x + size, y - top, x, y + size * 0.35);
+  ctx.closePath();
+};
+
+const drawDecorationShape = (ctx: CanvasRenderingContext2D, name: string, x: number, y: number, size: number) => {
+  if (name === "stars" || name === "sparkles") {
+    drawStar(ctx, x, y, size, size * 0.42, name === "sparkles" ? 4 : 5);
+    ctx.fill();
+    return;
+  }
+
+  if (name === "hearts") {
+    drawHeart(ctx, x, y, size);
+    ctx.fill();
+    return;
+  }
+
+  if (name === "crown") {
+    ctx.beginPath();
+    ctx.moveTo(x - size * 1.2, y + size * 0.5);
+    ctx.lineTo(x - size, y - size * 0.45);
+    ctx.lineTo(x - size * 0.35, y + size * 0.05);
+    ctx.lineTo(x, y - size * 0.7);
+    ctx.lineTo(x + size * 0.35, y + size * 0.05);
+    ctx.lineTo(x + size, y - size * 0.45);
+    ctx.lineTo(x + size * 1.2, y + size * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+
+  if (name === "burst") {
+    drawStar(ctx, x, y, size * 1.25, size * 0.48, 12);
+    ctx.fill();
+    return;
+  }
+
+  if (name === "leaves") {
+    ctx.beginPath();
+    ctx.ellipse(x - size * 0.45, y, size * 0.55, size * 0.24, -0.6, 0, Math.PI * 2);
+    ctx.ellipse(x + size * 0.45, y, size * 0.55, size * 0.24, 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+
+  if (name === "fireworks") {
+    for (let index = 0; index < 10; index += 1) {
+      const angle = (index / 10) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(angle) * size, y + Math.sin(angle) * size);
+      ctx.stroke();
+    }
+    return;
+  }
+
+  if (name === "confetti") {
+    for (let index = 0; index < 7; index += 1) {
+      const offset = (index - 3) * size * 0.42;
+      ctx.beginPath();
+      ctx.moveTo(x + offset, y - size * 0.38);
+      ctx.lineTo(x + offset + size * 0.18, y + size * 0.22);
+      ctx.stroke();
+    }
+  }
+};
+
+const drawTextDecorations = (ctx: CanvasRenderingContext2D, text: TextObject, blockHeight: number) => {
+  if (!text.decorations.length) return;
+
+  const size = Math.max(12, Math.min(text.fontSize * 0.42, text.width / 7));
+  const color = text.frame.enabled ? text.frame.accentColor : text.outline.enabled ? text.outline.color : text.color;
+  const y = -blockHeight / 2 - Math.max(text.frame.padding, text.background.padding, size * 1.25);
+  const count = text.decorations.length;
+
+  ctx.save();
+  ctx.shadowColor = "transparent";
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(2, size * 0.12);
+  text.decorations.forEach((decoration, index) => {
+    const x = count === 1 ? 0 : -text.width * 0.32 + (index * text.width * 0.64) / Math.max(1, count - 1);
+    drawDecorationShape(ctx, decoration, x, y, size);
+  });
+  ctx.restore();
+};
+
 const drawTextLine = (
   ctx: CanvasRenderingContext2D,
   line: string,
@@ -314,6 +419,8 @@ export const renderTextObjects = (
       ctx.fill();
       ctx.restore();
     }
+
+    drawTextDecorations(ctx, text, blockHeight);
 
     if (text.shadow.enabled) {
       ctx.shadowColor = text.shadow.color;

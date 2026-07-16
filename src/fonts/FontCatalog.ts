@@ -1,3 +1,5 @@
+import stylePackFontCatalog from "../text/stylePack/font_catalog.json";
+
 export type FontCategory =
   | "Elegante"
   | "Manuscrita"
@@ -29,6 +31,33 @@ export type FontRecord = {
   favorite?: boolean;
   lastUsedAt?: number;
 };
+
+const mapStylePackFontCategory = (category: string): FontCategory => {
+  if (category === "Tecnologia") return "Tecnológica";
+  if (category === "Esportiva") return "Esportiva";
+  if (category === "Retrô") return "Retrô";
+  if (category === "Simples") return "Simples";
+  if (category === "Impacto") return "Impacto";
+  if (category === "Elegante") return "Elegante";
+  if (category === "Manuscrita") return "Manuscrita";
+  if (category === "Infantil") return "Infantil";
+  return "Decorativa";
+};
+
+const stylePackSuggestedFonts: FontRecord[] = Object.entries(
+  (stylePackFontCatalog as { categories: Record<string, string[]> }).categories
+).flatMap(([category, families]) =>
+  families.map((family) => ({
+    id: `style-pack-${family.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`,
+    name: family,
+    family,
+    category: mapStylePackFontCategory(category),
+    styles: ["Regular", "Bold"],
+    license: "Fonte sugerida pelo pacote Nitro Lettering Style Pack; não empacotada. Use instalada no sistema ou importe com autorização.",
+    origin: "Catálogo sugerido do Nitro Lettering Style Pack",
+    source: "system" as const
+  }))
+);
 
 export const nitroFontCatalog: FontRecord[] = [
   {
@@ -90,5 +119,6 @@ export const nitroFontCatalog: FontRecord[] = [
     license: "Fonte do sistema do usuário; não empacotada pelo Nitro Studio.",
     origin: "Sistema operacional/navegador",
     source: "system"
-  }
+  },
+  ...stylePackSuggestedFonts
 ];

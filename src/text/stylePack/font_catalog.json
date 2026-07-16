@@ -1,0 +1,58 @@
+{
+  "notice": "Este pacote não contém arquivos de fonte. O Nitro Studio deve usar fontes instaladas ou importadas legalmente pelo usuário.",
+  "categories": {
+    "Impacto": [
+      "Anton",
+      "Bebas Neue",
+      "Oswald",
+      "League Spartan",
+      "Archivo Black"
+    ],
+    "Elegante": [
+      "Playfair Display",
+      "Cinzel",
+      "Cormorant Garamond",
+      "Libre Baskerville"
+    ],
+    "Manuscrita": [
+      "Pacifico",
+      "Dancing Script",
+      "Great Vibes",
+      "Satisfy",
+      "Lobster"
+    ],
+    "Infantil": [
+      "Fredoka",
+      "Baloo 2",
+      "Bubblegum Sans",
+      "Chewy",
+      "Luckiest Guy"
+    ],
+    "Tecnologia": [
+      "Orbitron",
+      "Oxanium",
+      "Rajdhani",
+      "Audiowide",
+      "Share Tech Mono"
+    ],
+    "Retrô": [
+      "Bungee",
+      "Righteous",
+      "Monoton",
+      "Press Start 2P"
+    ],
+    "Esportiva": [
+      "Teko",
+      "Barlow Condensed",
+      "Russo One",
+      "Black Ops One"
+    ],
+    "Simples": [
+      "Inter",
+      "Montserrat",
+      "Poppins",
+      "Roboto",
+      "Open Sans"
+    ]
+  }
+}

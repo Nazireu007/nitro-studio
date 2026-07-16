@@ -2,7 +2,7 @@ export type TextAlign = "left" | "center" | "right";
 export type TextCaseMode = "normal" | "upper" | "lower" | "capitalize";
 export type TextCurveMode = "straight" | "arc-up" | "arc-down" | "circle" | "semicircle" | "wave";
 export type TextFrameStyle = "none" | "badge" | "ribbon" | "stamp" | "plaque" | "seal" | "label";
-export type TextEffectPreset =
+export type BuiltInTextEffectPreset =
   | "none"
   | "neon"
   | "sport"
@@ -22,6 +22,16 @@ export type TextEffectPreset =
   | "chrome"
   | "shadow-block"
   | "script-love";
+export type TextEffectPreset = BuiltInTextEffectPreset | string;
+export type TextDecorationName =
+  | "burst"
+  | "confetti"
+  | "crown"
+  | "fireworks"
+  | "hearts"
+  | "leaves"
+  | "sparkles"
+  | "stars";
 
 export const TEXT_PLACEHOLDER = "Digite seu texto";
 
@@ -89,6 +99,7 @@ export type TextObject = {
     to: string;
     angle: number;
   };
+  decorations: TextDecorationName[];
   curve: {
     mode: TextCurveMode;
     intensity: number;
@@ -162,6 +173,7 @@ export const createTextObject = (sheetWidth: number, sheetHeight: number): TextO
     to: "#0f766e",
     angle: 0
   },
+  decorations: [],
   curve: {
     mode: "straight",
     intensity: 0,
@@ -186,6 +198,7 @@ export const normalizeTextObject = (text: Partial<TextObject>, sheetWidth = 1200
     background: { ...base.background, ...text.background },
     frame: { ...base.frame, ...text.frame },
     gradient: { ...base.gradient, ...text.gradient },
+    decorations: Array.isArray(text.decorations) ? text.decorations : base.decorations,
     curve: { ...base.curve, ...text.curve }
   };
 };

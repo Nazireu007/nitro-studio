@@ -1,0 +1,1015 @@
+{
+  "version": "1.0",
+  "presets": [
+    {
+      "id": "neon_azul_elétrico",
+      "name": "Neon Azul Elétrico",
+      "category": "Neon",
+      "fontFamily": "Orbitron",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#00E5FF",
+      "stroke": "#0066FF",
+      "strokeWidth": 3,
+      "shadow": {
+        "enabled": true,
+        "color": "#00E5FF",
+        "blur": 18,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": [
+        "#FFFFFF",
+        "#00E5FF",
+        "#0066FF"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "neon_rosa_pop",
+      "name": "Neon Rosa Pop",
+      "category": "Neon",
+      "fontFamily": "Bungee",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FF2BD6",
+      "stroke": "#FFFFFF",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#FF2BD6",
+        "blur": 20,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "luxo_dourado",
+      "name": "Luxo Dourado",
+      "category": "Elegante",
+      "fontFamily": "Cinzel",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#D9A514",
+      "stroke": "#754E00",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#00000088",
+        "blur": 8,
+        "offsetX": 4,
+        "offsetY": 6
+      },
+      "gradient": [
+        "#FFF7C7",
+        "#D9A514",
+        "#754E00"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "prata_metálica",
+      "name": "Prata Metálica",
+      "category": "Elegante",
+      "fontFamily": "League Spartan",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#C9D2DC",
+      "stroke": "#384656",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#00000077",
+        "blur": 7,
+        "offsetX": 3,
+        "offsetY": 5
+      },
+      "gradient": [
+        "#FFFFFF",
+        "#AAB7C4",
+        "#697785"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "infantil_arco-íris",
+      "name": "Infantil Arco-Íris",
+      "category": "Infantil",
+      "fontFamily": "Fredoka",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FF3B30",
+      "stroke": "#FFFFFF",
+      "strokeWidth": 4,
+      "shadow": {
+        "enabled": true,
+        "color": "#6B2FB8",
+        "blur": 3,
+        "offsetX": 5,
+        "offsetY": 6
+      },
+      "gradient": [
+        "#FF3B30",
+        "#FFCC00",
+        "#34C759",
+        "#007AFF",
+        "#AF52DE"
+      ],
+      "curve": {
+        "type": "arcUp",
+        "amount": 12
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "confetti.svg",
+        "sparkles.svg"
+      ]
+    },
+    {
+      "id": "doce_algodão",
+      "name": "Doce Algodão",
+      "category": "Infantil",
+      "fontFamily": "Baloo 2",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FF8FCF",
+      "stroke": "#FFFFFF",
+      "strokeWidth": 5,
+      "shadow": {
+        "enabled": true,
+        "color": "#7C3AED",
+        "blur": 5,
+        "offsetX": 4,
+        "offsetY": 5
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "gamer_tóxico",
+      "name": "Gamer Tóxico",
+      "category": "Tecnologia",
+      "fontFamily": "Oxanium",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#65FF3B",
+      "stroke": "#172B00",
+      "strokeWidth": 3,
+      "shadow": {
+        "enabled": true,
+        "color": "#65FF3B",
+        "blur": 15,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": [
+        "#E9FF75",
+        "#65FF3B",
+        "#0E8A00"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "cyber_roxo",
+      "name": "Cyber Roxo",
+      "category": "Tecnologia",
+      "fontFamily": "Audiowide",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#C642FF",
+      "stroke": "#1A0033",
+      "strokeWidth": 3,
+      "shadow": {
+        "enabled": true,
+        "color": "#8A2BE2",
+        "blur": 18,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "esportivo_vermelho",
+      "name": "Esportivo Vermelho",
+      "category": "Esportivo",
+      "fontFamily": "Teko",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFFFFF",
+      "stroke": "#E10600",
+      "strokeWidth": 5,
+      "shadow": {
+        "enabled": true,
+        "color": "#000000",
+        "blur": 2,
+        "offsetX": 7,
+        "offsetY": 7
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "campeão_dourado",
+      "name": "Campeão Dourado",
+      "category": "Esportivo",
+      "fontFamily": "Russo One",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFD000",
+      "stroke": "#111111",
+      "strokeWidth": 4,
+      "shadow": {
+        "enabled": true,
+        "color": "#8A5A00",
+        "blur": 3,
+        "offsetX": 5,
+        "offsetY": 6
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "retrô_sunset",
+      "name": "Retrô Sunset",
+      "category": "Retrô",
+      "fontFamily": "Righteous",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#F78154",
+      "stroke": "#2A3D45",
+      "strokeWidth": 4,
+      "shadow": {
+        "enabled": true,
+        "color": "#4D9078",
+        "blur": 0,
+        "offsetX": 7,
+        "offsetY": 7
+      },
+      "gradient": [
+        "#F2C14E",
+        "#F78154",
+        "#C94C4C"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "anos_80",
+      "name": "Anos 80",
+      "category": "Retrô",
+      "fontFamily": "Monoton",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FF2BD6",
+      "stroke": "#00E5FF",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#7A00FF",
+        "blur": 16,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "romântico_rosé",
+      "name": "Romântico Rosé",
+      "category": "Romântico",
+      "fontFamily": "Great Vibes",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FF4F87",
+      "stroke": "#8C1D40",
+      "strokeWidth": 1,
+      "shadow": {
+        "enabled": true,
+        "color": "#FFB3C7",
+        "blur": 7,
+        "offsetX": 2,
+        "offsetY": 3
+      },
+      "gradient": null,
+      "curve": {
+        "type": "arcUp",
+        "amount": 12
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "hearts.svg"
+      ]
+    },
+    {
+      "id": "casamento_elegante",
+      "name": "Casamento Elegante",
+      "category": "Elegante",
+      "fontFamily": "Playfair Display",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFF7E8",
+      "stroke": "#A37B2C",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#00000066",
+        "blur": 5,
+        "offsetX": 2,
+        "offsetY": 4
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "festa_confete",
+      "name": "Festa Confete",
+      "category": "Festa",
+      "fontFamily": "Luckiest Guy",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFD166",
+      "stroke": "#8338EC",
+      "strokeWidth": 4,
+      "shadow": {
+        "enabled": true,
+        "color": "#FF4D6D",
+        "blur": 2,
+        "offsetX": 6,
+        "offsetY": 7
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "confetti.svg",
+        "sparkles.svg"
+      ]
+    },
+    {
+      "id": "carnaval_vibrante",
+      "name": "Carnaval Vibrante",
+      "category": "Festa",
+      "fontFamily": "Bungee",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#00D084",
+      "stroke": "#FF2D95",
+      "strokeWidth": 5,
+      "shadow": {
+        "enabled": true,
+        "color": "#7B2CFF",
+        "blur": 4,
+        "offsetX": 5,
+        "offsetY": 6
+      },
+      "gradient": [
+        "#00A8FF",
+        "#FF2D95",
+        "#FFD60A",
+        "#00D084"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "contorno_duplo",
+      "name": "Contorno Duplo",
+      "category": "Impacto",
+      "fontFamily": "Anton",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFFFFF",
+      "stroke": "#000000",
+      "strokeWidth": 7,
+      "shadow": {
+        "enabled": true,
+        "color": "#FF2D95",
+        "blur": 0,
+        "offsetX": 6,
+        "offsetY": 6
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "clean_moderno",
+      "name": "Clean Moderno",
+      "category": "Simples",
+      "fontFamily": "Montserrat",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#111827",
+      "stroke": "#FFFFFF",
+      "strokeWidth": 0,
+      "shadow": {
+        "enabled": false
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "sombra_longa_azul",
+      "name": "Sombra Longa Azul",
+      "category": "Impacto",
+      "fontFamily": "Archivo Black",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFFFFF",
+      "stroke": "#0066FF",
+      "strokeWidth": 3,
+      "shadow": {
+        "enabled": true,
+        "color": "#0037A8",
+        "blur": 0,
+        "offsetX": 12,
+        "offsetY": 12
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "brilho_celestial",
+      "name": "Brilho Celestial",
+      "category": "Elegante",
+      "fontFamily": "Cormorant Garamond",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFFFFF",
+      "stroke": "#9D7BFF",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#E5DCFF",
+        "blur": 20,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "stars.svg",
+        "sparkles.svg"
+      ]
+    },
+    {
+      "id": "fogo_laranja",
+      "name": "Fogo Laranja",
+      "category": "Impacto",
+      "fontFamily": "Anton",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFD166",
+      "stroke": "#7A2100",
+      "strokeWidth": 3,
+      "shadow": {
+        "enabled": true,
+        "color": "#FF4B00",
+        "blur": 12,
+        "offsetX": 0,
+        "offsetY": 5
+      },
+      "gradient": [
+        "#FFF4A3",
+        "#FF9F1C",
+        "#E63900"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "gelo_azul",
+      "name": "Gelo Azul",
+      "category": "Impacto",
+      "fontFamily": "League Spartan",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#E8FBFF",
+      "stroke": "#1B75BC",
+      "strokeWidth": 3,
+      "shadow": {
+        "enabled": true,
+        "color": "#00C8FF",
+        "blur": 10,
+        "offsetX": 0,
+        "offsetY": 3
+      },
+      "gradient": [
+        "#FFFFFF",
+        "#9EEBFF",
+        "#1687D9"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "holográfico",
+      "name": "Holográfico",
+      "category": "Tecnologia",
+      "fontFamily": "Orbitron",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFFFFF",
+      "stroke": "#6B4EFF",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#00E5FF",
+        "blur": 10,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": [
+        "#FF6AD5",
+        "#C774FF",
+        "#61DFFF",
+        "#7CFFB2",
+        "#FFF06A"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "princesa_rosa",
+      "name": "Princesa Rosa",
+      "category": "Infantil",
+      "fontFamily": "Dancing Script",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FF6DB6",
+      "stroke": "#FFFFFF",
+      "strokeWidth": 4,
+      "shadow": {
+        "enabled": true,
+        "color": "#9B4DFF",
+        "blur": 8,
+        "offsetX": 0,
+        "offsetY": 4
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "crown.svg",
+        "sparkles.svg"
+      ]
+    },
+    {
+      "id": "super_herói",
+      "name": "Super Herói",
+      "category": "Infantil",
+      "fontFamily": "Bangers",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFD400",
+      "stroke": "#D50000",
+      "strokeWidth": 5,
+      "shadow": {
+        "enabled": true,
+        "color": "#0038A8",
+        "blur": 0,
+        "offsetX": 8,
+        "offsetY": 8
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "burst.svg"
+      ]
+    },
+    {
+      "id": "galáxia",
+      "name": "Galáxia",
+      "category": "Tecnologia",
+      "fontFamily": "Audiowide",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFFFFF",
+      "stroke": "#5B21B6",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#8B5CF6",
+        "blur": 18,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": [
+        "#00E5FF",
+        "#7C3AED",
+        "#FF2BD6"
+      ],
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "stars.svg"
+      ]
+    },
+    {
+      "id": "rock_pesado",
+      "name": "Rock Pesado",
+      "category": "Impacto",
+      "fontFamily": "Oswald",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFFFFF",
+      "stroke": "#111111",
+      "strokeWidth": 5,
+      "shadow": {
+        "enabled": true,
+        "color": "#E10600",
+        "blur": 0,
+        "offsetX": 8,
+        "offsetY": 8
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "natureza",
+      "name": "Natureza",
+      "category": "Decorativa",
+      "fontFamily": "Lora",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#E8F5D0",
+      "stroke": "#2F6B3B",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#1E4B2A",
+        "blur": 6,
+        "offsetX": 2,
+        "offsetY": 4
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "leaves.svg"
+      ]
+    },
+    {
+      "id": "mar_oceano",
+      "name": "Mar Oceano",
+      "category": "Decorativa",
+      "fontFamily": "Poppins",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#E6FAFF",
+      "stroke": "#0077B6",
+      "strokeWidth": 3,
+      "shadow": {
+        "enabled": true,
+        "color": "#00B4D8",
+        "blur": 12,
+        "offsetX": 0,
+        "offsetY": 3
+      },
+      "gradient": [
+        "#FFFFFF",
+        "#90E0EF",
+        "#0077B6"
+      ],
+      "curve": {
+        "type": "wave",
+        "amount": 12
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "futebol",
+      "name": "Futebol",
+      "category": "Esportivo",
+      "fontFamily": "Barlow Condensed",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFFFFF",
+      "stroke": "#00843D",
+      "strokeWidth": 4,
+      "shadow": {
+        "enabled": true,
+        "color": "#004D24",
+        "blur": 0,
+        "offsetX": 7,
+        "offsetY": 7
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "basquete",
+      "name": "Basquete",
+      "category": "Esportivo",
+      "fontFamily": "Black Ops One",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FF8C00",
+      "stroke": "#111111",
+      "strokeWidth": 4,
+      "shadow": {
+        "enabled": true,
+        "color": "#6B2C00",
+        "blur": 2,
+        "offsetX": 6,
+        "offsetY": 7
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "pixel_gamer",
+      "name": "Pixel Gamer",
+      "category": "Retrô",
+      "fontFamily": "Press Start 2P",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#00FF85",
+      "stroke": "#001A11",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#00FF85",
+        "blur": 8,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "café_artesanal",
+      "name": "Café Artesanal",
+      "category": "Retrô",
+      "fontFamily": "Lobster",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#F5D0A9",
+      "stroke": "#5C2A12",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#2D1309",
+        "blur": 5,
+        "offsetX": 3,
+        "offsetY": 5
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    },
+    {
+      "id": "natal_brilhante",
+      "name": "Natal Brilhante",
+      "category": "Festa",
+      "fontFamily": "Cinzel",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFFFFF",
+      "stroke": "#C1121F",
+      "strokeWidth": 3,
+      "shadow": {
+        "enabled": true,
+        "color": "#FFD700",
+        "blur": 12,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "stars.svg",
+        "sparkles.svg"
+      ]
+    },
+    {
+      "id": "ano_novo",
+      "name": "Ano Novo",
+      "category": "Festa",
+      "fontFamily": "League Spartan",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FFF7C7",
+      "stroke": "#B78B00",
+      "strokeWidth": 2,
+      "shadow": {
+        "enabled": true,
+        "color": "#FFD700",
+        "blur": 20,
+        "offsetX": 0,
+        "offsetY": 0
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": [
+        "fireworks.svg"
+      ]
+    },
+    {
+      "id": "halloween",
+      "name": "Halloween",
+      "category": "Festa",
+      "fontFamily": "Creepster",
+      "fontFallback": "sans-serif",
+      "fontWeight": 900,
+      "fill": "#FF7A00",
+      "stroke": "#2B003B",
+      "strokeWidth": 4,
+      "shadow": {
+        "enabled": true,
+        "color": "#7A00FF",
+        "blur": 9,
+        "offsetX": 4,
+        "offsetY": 5
+      },
+      "gradient": null,
+      "curve": {
+        "type": "none",
+        "amount": 0
+      },
+      "letterSpacing": 0,
+      "editable": true,
+      "decorations": []
+    }
+  ]
+}

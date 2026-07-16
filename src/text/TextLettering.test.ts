@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { strengthenOutline } from "./TextEffects";
 import { fillTextWidth, fitTextInsideArea } from "./TextFitEngine";
 import { createTextObject } from "./TextModel";
-import { applyLetteringPreset } from "./TextPresetRegistry";
+import { applyLetteringPreset, letteringPresets } from "./TextPresetRegistry";
 import { applyTextCase, hasWeakOutlineForPrint } from "./TypographyService";
 
 describe("lettering tools", () => {
@@ -40,6 +40,17 @@ describe("lettering tools", () => {
     expect(ribbon.frame.enabled).toBe(true);
     expect(stamp.frame.style).toBe("stamp");
     expect(seal.frame.style).toBe("seal");
+  });
+
+  it("loads the Nitro lettering style pack as editable presets", () => {
+    const stylePackPreset = letteringPresets.find((preset) => preset.id === "infantil_arco-íris");
+    const text = applyLetteringPreset(createTextObject(1200, 1600), "infantil_arco-íris");
+
+    expect(stylePackPreset?.name).toBe("Infantil Arco-Íris");
+    expect(text.fontFamily).toBe("Fredoka");
+    expect(text.gradient.enabled).toBe(true);
+    expect(text.outline.enabled).toBe(true);
+    expect(text.decorations).toContain("confetti");
   });
 
   it("detects and strengthens weak print outlines", () => {

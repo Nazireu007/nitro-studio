@@ -1,0 +1,40 @@
+{
+  "Neon Azul": [
+    "#FFFFFF",
+    "#00E5FF",
+    "#0066FF",
+    "#14002B"
+  ],
+  "Neon Rosa": [
+    "#FFFFFF",
+    "#FF2BD6",
+    "#7A00FF",
+    "#190028"
+  ],
+  "Luxo Dourado": [
+    "#FFF7C7",
+    "#D9A514",
+    "#754E00",
+    "#1A1200"
+  ],
+  "Infantil": [
+    "#FF3B30",
+    "#FFCC00",
+    "#34C759",
+    "#007AFF",
+    "#AF52DE"
+  ],
+  "Tecnologia": [
+    "#00E5FF",
+    "#00FF85",
+    "#061B2B",
+    "#FFFFFF"
+  ],
+  "Festa": [
+    "#FF4D6D",
+    "#FFD166",
+    "#06D6A0",
+    "#118AB2",
+    "#8338EC"
+  ]
+}
