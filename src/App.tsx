@@ -6,12 +6,15 @@ import {
   Check,
   ClipboardCheck,
   Copy,
+  Coffee,
   Download,
   Eye,
+  FileText,
   FileType,
   FlipHorizontal2,
   FlipVertical2,
   Grid3X3,
+  Image,
   ImagePlus,
   Images,
   Layers,
@@ -29,6 +32,7 @@ import {
   Target,
   Trash2,
   WandSparkles,
+  Shirt,
   Upload
 } from "lucide-react";
 import { getImageInsights, loadImageFile, SourceImage } from "./lib/analysis";
@@ -222,6 +226,16 @@ type SmartProfile = {
   note: string;
 };
 
+type MissionId = "shirt" | "mug" | "a4" | "edit";
+
+type MissionOption = {
+  id: MissionId;
+  title: string;
+  subtitle: string;
+  detail: string;
+  icon: typeof Shirt;
+};
+
 const smartProfiles: SmartProfile[] = [
   {
     id: "profile-shirt-kids",
@@ -369,6 +383,37 @@ const smartProfiles: SmartProfile[] = [
   }
 ];
 
+const missionOptions: MissionOption[] = [
+  {
+    id: "shirt",
+    title: "Preparar uma camisa",
+    subtitle: "Perfil de tecido com espelhamento",
+    detail: "O Nitro seleciona camisa P em A4, preserva a arte e prepara o assistente para sublimação.",
+    icon: Shirt
+  },
+  {
+    id: "mug",
+    title: "Preparar uma caneca",
+    subtitle: "Arte panorâmica para 11 oz",
+    detail: "A folha, a sangria e o preenchimento entram prontos para transferência em caneca.",
+    icon: Coffee
+  },
+  {
+    id: "a4",
+    title: "Preparar uma folha A4",
+    subtitle: "Controle direto da página",
+    detail: "Começa em A4, sem espelhamento, para montar, posicionar e imprimir a folha inteira.",
+    icon: FileText
+  },
+  {
+    id: "edit",
+    title: "Editar uma arte existente",
+    subtitle: "Modo livre com ajustes manuais",
+    detail: "Abre o Nitro como editor de arte, mantendo corte, tamanho, cor e exportação à mão.",
+    icon: Image
+  }
+];
+
 const createImageId = () => `img-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
 const clampScale = (value: number) => Math.max(0.2, Math.min(4, value));
@@ -396,6 +441,7 @@ export const App = () => {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [checkedImageIds, setCheckedImageIds] = useState<string[]>([]);
   const [settings, setSettings] = useState<Settings>(loadInitialSettings);
+  const [activeMission, setActiveMission] = useState<MissionId | null>(null);
   const [history, setHistory] = useState<Settings[]>([]);
   const [redoHistory, setRedoHistory] = useState<Settings[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -439,6 +485,10 @@ export const App = () => {
     [checkedImageIds, images]
   );
   const montageImages = checkedImages.length > 1 ? checkedImages : [];
+  const currentMission = useMemo(
+    () => missionOptions.find((mission) => mission.id === activeMission) ?? null,
+    [activeMission]
+  );
   const visibleCrop = pendingCrop ?? {
     top: settings.cropTop,
     right: settings.cropRight,
@@ -1113,6 +1163,100 @@ export const App = () => {
     void handleFiles(event.dataTransfer.files);
   };
 
+  const startMission = (missionId: MissionId) => {
+    const missionSettings: Record<MissionId, Partial<Settings>> = {
+      shirt: {
+        destinationId: "shirt-a4",
+        sheetId: "a4",
+        sheetRotationDeg: 0,
+        fitMode: "contain",
+        bleedMm: 0,
+        marginMm: 6,
+        gapMm: 4,
+        copies: 1,
+        mirror: true,
+        printProduct: "Camisa branca",
+        paperType: "Papel sublimático",
+        printQuality: "Alta / melhor foto",
+        printOrientation: "auto",
+        borderless: false,
+        driverScale: 100
+      },
+      mug: {
+        destinationId: "mug-11oz",
+        sheetId: "a4",
+        sheetRotationDeg: 0,
+        fitMode: "cover",
+        bleedMm: 2,
+        marginMm: 5,
+        gapMm: 4,
+        copies: 1,
+        mirror: true,
+        printProduct: "Caneca branca 11 oz",
+        paperType: "Papel sublimático",
+        printQuality: "Alta / melhor foto",
+        printOrientation: "landscape",
+        borderless: false,
+        driverScale: 100
+      },
+      a4: {
+        destinationId: "custom",
+        sheetId: "a4",
+        sheetRotationDeg: 0,
+        fitMode: "contain",
+        bleedMm: 0,
+        marginMm: 0,
+        gapMm: 4,
+        copies: 1,
+        customWidthMm: 210,
+        customHeightMm: 297,
+        mirror: false,
+        printProduct: "Folha A4",
+        paperType: "Papel comum ou fotográfico",
+        printQuality: "Alta / melhor foto",
+        printOrientation: "portrait",
+        borderless: true,
+        driverScale: 100
+      },
+      edit: {
+        destinationId: "custom",
+        sheetId: "a4",
+        sheetRotationDeg: 0,
+        fitMode: "contain",
+        bleedMm: 0,
+        marginMm: 6,
+        gapMm: 4,
+        copies: 1,
+        customWidthMm: 100,
+        customHeightMm: 100,
+        mirror: false,
+        printProduct: "Arte personalizada",
+        paperType: "Conforme o produto",
+        printQuality: "Alta / melhor foto",
+        printOrientation: "auto",
+        borderless: false,
+        driverScale: 100
+      }
+    };
+    const mission = missionOptions.find((item) => item.id === missionId);
+    setActiveMission(missionId);
+    updateSettings({
+      ...missionSettings[missionId],
+      cropTop: 0,
+      cropRight: 0,
+      cropBottom: 0,
+      cropLeft: 0,
+      imageScale: 1,
+      imageScaleX: 1,
+      imageScaleY: 1,
+      offsetXmm: 0,
+      offsetYmm: 0,
+      rotationDeg: 0,
+      flipVertical: false
+    });
+    setMessage(`${mission?.title ?? "Missão"} ativada. Importe a arte e o Nitro guia o restante.`);
+  };
+
   const handleDestination = (item: DestinationPreset) => {
     updateSettings({
       destinationId: item.id,
@@ -1696,6 +1840,46 @@ export const App = () => {
   const insights = sourceImage ? getImageInsights(sourceImage) : [];
   const canExport = Boolean(sourceImage && plan);
 
+  if (!activeMission) {
+    return (
+      <main className="mission-shell">
+        <section className="mission-panel" aria-labelledby="mission-title">
+          <div className="mission-brand">
+            <div className="brand-mark">N</div>
+            <div>
+              <span>Nitro Studio</span>
+              <strong>Missão do Dia</strong>
+            </div>
+          </div>
+          <div className="mission-copy">
+            <span>Bem-vindo ao Nitro Studio</span>
+            <h1 id="mission-title">O que você quer fazer hoje?</h1>
+            <p>Escolha um objetivo e o Nitro já ajusta folha, perfil, encaixe, impressão e assistente para esse trabalho.</p>
+          </div>
+          <div className="mission-grid">
+            {missionOptions.map((mission) => {
+              const MissionIcon = mission.icon;
+              return (
+                <button className="mission-card" key={mission.id} type="button" onClick={() => startMission(mission.id)}>
+                  <span className="mission-icon">
+                    <MissionIcon size={28} />
+                  </span>
+                  <strong>{mission.title}</strong>
+                  <span>{mission.subtitle}</span>
+                  <small>{mission.detail}</small>
+                </button>
+              );
+            })}
+          </div>
+          <footer className="mission-footer">
+            <BadgeCheck size={17} />
+            Comece simples. Depois você pode trocar perfil, cortar, esticar, simular e imprimir com controle fino.
+          </footer>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -1707,6 +1891,10 @@ export const App = () => {
           </div>
         </div>
         <div className="top-actions">
+          <button className="secondary-button mission-switch" onClick={() => setActiveMission(null)}>
+            <Target size={18} />
+            {currentMission?.title ?? "Missão do Dia"}
+          </button>
           <span className="autosave-pill">
             <Save size={15} />
             Autosave
@@ -1739,8 +1927,8 @@ export const App = () => {
         />
         <div className="quick-flow-copy">
           <span>Regra dos 3 cliques</span>
-          <strong>Importar arte, aceitar recomendação e simular impressão</strong>
-          <small>O Nitro orienta, previne erro e deixa o ajuste fino nas suas mãos.</small>
+          <strong>{currentMission ? currentMission.title : "Importar arte, aceitar recomendação e simular impressão"}</strong>
+          <small>{currentMission ? currentMission.subtitle : "O Nitro orienta, previne erro e deixa o ajuste fino nas suas mãos."}</small>
         </div>
         <button className={sourceImage ? "quick-step is-done" : "quick-step"} onClick={() => quickFileInputRef.current?.click()}>
           <span>1</span>
