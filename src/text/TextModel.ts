@@ -1,6 +1,7 @@
 export type TextAlign = "left" | "center" | "right";
 export type TextCaseMode = "normal" | "upper" | "lower" | "capitalize";
 export type TextCurveMode = "straight" | "arc-up" | "arc-down" | "circle" | "semicircle" | "wave";
+export type TextFrameStyle = "none" | "badge" | "ribbon" | "stamp" | "plaque" | "seal" | "label";
 export type TextEffectPreset =
   | "none"
   | "neon"
@@ -11,7 +12,16 @@ export type TextEffectPreset =
   | "tech"
   | "party"
   | "outline-name"
-  | "vibrant";
+  | "vibrant"
+  | "badge"
+  | "ribbon"
+  | "stamp"
+  | "plaque"
+  | "seal"
+  | "comic-pop"
+  | "chrome"
+  | "shadow-block"
+  | "script-love";
 
 export const TEXT_PLACEHOLDER = "Digite seu texto";
 
@@ -61,6 +71,15 @@ export type TextObject = {
   background: {
     enabled: boolean;
     color: string;
+    padding: number;
+    radius: number;
+  };
+  frame: {
+    enabled: boolean;
+    style: TextFrameStyle;
+    color: string;
+    accentColor: string;
+    width: number;
     padding: number;
     radius: number;
   };
@@ -128,6 +147,15 @@ export const createTextObject = (sheetWidth: number, sheetHeight: number): TextO
     padding: 10,
     radius: 8
   },
+  frame: {
+    enabled: false,
+    style: "none",
+    color: "#0f766e",
+    accentColor: "#ffffff",
+    width: 6,
+    padding: 16,
+    radius: 18
+  },
   gradient: {
     enabled: false,
     from: "#111827",
@@ -156,6 +184,7 @@ export const normalizeTextObject = (text: Partial<TextObject>, sheetWidth = 1200
     shadow: { ...base.shadow, ...text.shadow },
     glow: { ...base.glow, ...text.glow },
     background: { ...base.background, ...text.background },
+    frame: { ...base.frame, ...text.frame },
     gradient: { ...base.gradient, ...text.gradient },
     curve: { ...base.curve, ...text.curve }
   };

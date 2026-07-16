@@ -68,6 +68,138 @@ const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: n
   ctx.closePath();
 };
 
+const getFrameBox = (text: TextObject, blockHeight: number) => {
+  const padding = Math.max(text.frame.padding, text.background.enabled ? text.background.padding : 0);
+  return {
+    x: -text.width / 2 - padding,
+    y: -blockHeight / 2 - padding,
+    width: text.width + padding * 2,
+    height: blockHeight + padding * 2,
+    radius: text.frame.radius
+  };
+};
+
+const drawRibbonFrame = (ctx: CanvasRenderingContext2D, text: TextObject, blockHeight: number) => {
+  const box = getFrameBox(text, blockHeight);
+  const notch = Math.min(box.width * 0.08, box.height * 0.42);
+  ctx.beginPath();
+  ctx.moveTo(box.x - notch, box.y);
+  ctx.lineTo(box.x + box.width + notch, box.y);
+  ctx.lineTo(box.x + box.width, box.y + box.height / 2);
+  ctx.lineTo(box.x + box.width + notch, box.y + box.height);
+  ctx.lineTo(box.x - notch, box.y + box.height);
+  ctx.lineTo(box.x, box.y + box.height / 2);
+  ctx.closePath();
+  ctx.fillStyle = text.background.enabled ? text.background.color : text.frame.color;
+  ctx.fill();
+  ctx.strokeStyle = text.frame.accentColor;
+  ctx.lineWidth = text.frame.width;
+  ctx.stroke();
+};
+
+const drawSealFrame = (ctx: CanvasRenderingContext2D, text: TextObject, blockHeight: number) => {
+  const box = getFrameBox(text, blockHeight);
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, box.width / 2, Math.max(box.height / 2, box.width * 0.16), 0, 0, Math.PI * 2);
+  ctx.fillStyle = text.background.enabled ? text.background.color : "rgba(255, 255, 255, 0.72)";
+  ctx.fill();
+  ctx.strokeStyle = text.frame.color;
+  ctx.lineWidth = text.frame.width;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, box.width / 2 - text.frame.width * 1.8, Math.max(box.height / 2 - text.frame.width * 1.8, box.width * 0.12), 0, 0, Math.PI * 2);
+  ctx.strokeStyle = text.frame.accentColor;
+  ctx.lineWidth = Math.max(2, text.frame.width * 0.45);
+  ctx.stroke();
+};
+
+const drawPlaqueCorners = (ctx: CanvasRenderingContext2D, text: TextObject, blockHeight: number) => {
+  const box = getFrameBox(text, blockHeight);
+  const dot = Math.max(4, text.frame.width * 0.8);
+  const inset = Math.max(12, text.frame.padding * 0.42);
+  [
+    [box.x + inset, box.y + inset],
+    [box.x + box.width - inset, box.y + inset],
+    [box.x + inset, box.y + box.height - inset],
+    [box.x + box.width - inset, box.y + box.height - inset]
+  ].forEach(([x, y]) => {
+    ctx.beginPath();
+    ctx.arc(x, y, dot, 0, Math.PI * 2);
+    ctx.fillStyle = text.frame.accentColor;
+    ctx.fill();
+  });
+};
+
+const drawTextFrame = (ctx: CanvasRenderingContext2D, text: TextObject, blockHeight: number) => {
+  if (!text.frame.enabled || text.frame.style === "none") return;
+
+  ctx.save();
+  ctx.shadowColor = "transparent";
+  ctx.lineJoin = "round";
+
+  if (text.frame.style === "ribbon") {
+    drawRibbonFrame(ctx, text, blockHeight);
+    ctx.restore();
+    return;
+  }
+
+  if (text.frame.style === "seal") {
+    drawSealFrame(ctx, text, blockHeight);
+    ctx.restore();
+    return;
+  }
+
+  const box = getFrameBox(text, blockHeight);
+  if (text.frame.style === "label") {
+    ctx.beginPath();
+    ctx.moveTo(box.x + box.radius, box.y);
+    ctx.lineTo(box.x + box.width - box.radius, box.y);
+    ctx.lineTo(box.x + box.width, box.y + box.height / 2);
+    ctx.lineTo(box.x + box.width - box.radius, box.y + box.height);
+    ctx.lineTo(box.x + box.radius, box.y + box.height);
+    ctx.lineTo(box.x, box.y + box.height / 2);
+    ctx.closePath();
+    ctx.fillStyle = text.background.enabled ? text.background.color : "rgba(255, 255, 255, 0.72)";
+    ctx.fill();
+    ctx.strokeStyle = text.frame.color;
+    ctx.lineWidth = text.frame.width;
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  roundRect(ctx, box.x, box.y, box.width, box.height, box.radius);
+  ctx.fillStyle = text.background.enabled ? text.background.color : "rgba(255, 255, 255, 0.72)";
+  ctx.fill();
+  ctx.strokeStyle = text.frame.color;
+  ctx.lineWidth = text.frame.width;
+  if (text.frame.style === "stamp") ctx.setLineDash([text.frame.width * 1.5, text.frame.width * 1.15]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (text.frame.style === "badge" || text.frame.style === "plaque" || text.frame.style === "stamp") {
+    roundRect(
+      ctx,
+      box.x + text.frame.width * 1.8,
+      box.y + text.frame.width * 1.8,
+      box.width - text.frame.width * 3.6,
+      box.height - text.frame.width * 3.6,
+      Math.max(4, box.radius - text.frame.width)
+    );
+    ctx.strokeStyle = text.frame.accentColor;
+    ctx.lineWidth = Math.max(2, text.frame.width * 0.45);
+    if (text.frame.style === "stamp") ctx.setLineDash([text.frame.width, text.frame.width]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  if (text.frame.style === "plaque") drawPlaqueCorners(ctx, text, blockHeight);
+
+  ctx.restore();
+};
+
 const drawTextLine = (
   ctx: CanvasRenderingContext2D,
   line: string,
@@ -171,7 +303,9 @@ export const renderTextObjects = (
     ctx.rotate((text.rotation * Math.PI) / 180);
     if (text.mirror) ctx.scale(-1, 1);
 
-    if (text.background.enabled) {
+    if (text.frame.enabled) {
+      drawTextFrame(ctx, text, blockHeight);
+    } else if (text.background.enabled) {
       ctx.save();
       ctx.shadowColor = "transparent";
       ctx.fillStyle = text.background.color;

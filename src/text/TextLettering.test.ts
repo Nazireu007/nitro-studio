@@ -28,11 +28,18 @@ describe("lettering tools", () => {
     const text = createTextObject(1200, 1600);
     const neon = applyLetteringPreset(text, "neon");
     const sport = applyLetteringPreset(text, "sport");
+    const ribbon = applyLetteringPreset(text, "ribbon");
+    const stamp = applyLetteringPreset(text, "stamp");
+    const seal = applyLetteringPreset(text, "seal");
 
     expect(neon.effectPreset).toBe("neon");
     expect(neon.glow.enabled).toBe(true);
     expect(sport.doubleOutline.enabled).toBe(true);
     expect(sport.caseMode).toBe("upper");
+    expect(ribbon.frame.style).toBe("ribbon");
+    expect(ribbon.frame.enabled).toBe(true);
+    expect(stamp.frame.style).toBe("stamp");
+    expect(seal.frame.style).toBe("seal");
   });
 
   it("detects and strengthens weak print outlines", () => {

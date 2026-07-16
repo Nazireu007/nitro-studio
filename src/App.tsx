@@ -3810,6 +3810,20 @@ export const App = () => {
                     const editorShadow = canShowEditorEffects && text.shadow.enabled
                       ? `${Math.min(2, text.shadow.offsetX * currentPreviewScale)}px ${Math.min(2, text.shadow.offsetY * currentPreviewScale)}px ${Math.min(3, text.shadow.blur * currentPreviewScale)}px ${text.shadow.color}`
                       : "none";
+                    const editorFrameWidth = text.frame.enabled ? Math.max(1, text.frame.width * currentPreviewScale) : 0;
+                    const editorPadding = text.frame.enabled
+                      ? Math.max(4, text.frame.padding * currentPreviewScale)
+                      : text.background.enabled
+                        ? text.background.padding * currentPreviewScale
+                        : 3;
+                    const editorBoxShadows = [
+                      canShowEditorEffects && text.doubleOutline.enabled
+                        ? `0 0 0 ${Math.min(3, Math.max(1, text.doubleOutline.width * currentPreviewScale * 0.28))}px ${text.doubleOutline.color}`
+                        : "",
+                      text.frame.enabled && (text.frame.style === "badge" || text.frame.style === "plaque" || text.frame.style === "stamp")
+                        ? `inset 0 0 0 ${Math.max(1, editorFrameWidth * 1.8)}px ${text.frame.accentColor}`
+                        : ""
+                    ].filter(Boolean).join(", ") || undefined;
                     return (
                       <div
                         className={selectedTextId === text.id ? "text-object is-selected" : "text-object"}
@@ -3829,16 +3843,18 @@ export const App = () => {
                           letterSpacing: `${text.letterSpacing * currentPreviewScale}px`,
                           opacity: text.opacity,
                           transform: `translate(-50%, -50%) rotate(${text.rotation + (pageFlipped ? 180 : 0)}deg) scaleX(${text.mirror ? -1 : 1})`,
-                          background: text.background.enabled ? text.background.color : text.gradient.enabled ? `linear-gradient(90deg, ${text.gradient.from}, ${text.gradient.to})` : "transparent",
-                          borderRadius: text.background.enabled ? `${text.background.radius * currentPreviewScale}px` : undefined,
-                          padding: text.background.enabled ? `${text.background.padding * currentPreviewScale}px` : "3px",
+                          background: text.background.enabled ? text.background.color : text.frame.enabled ? "rgba(255, 255, 255, 0.72)" : text.gradient.enabled ? `linear-gradient(90deg, ${text.gradient.from}, ${text.gradient.to})` : "transparent",
+                          border: text.frame.enabled ? `${editorFrameWidth}px ${text.frame.style === "stamp" ? "dashed" : "solid"} ${text.frame.color}` : undefined,
+                          borderRadius: text.frame.enabled ? text.frame.style === "seal" ? "999px" : `${text.frame.radius * currentPreviewScale}px` : text.background.enabled ? `${text.background.radius * currentPreviewScale}px` : undefined,
+                          clipPath: text.frame.enabled && text.frame.style === "label" ? "polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%)" : text.frame.enabled && text.frame.style === "ribbon" ? "polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%)" : undefined,
+                          padding: `${editorPadding}px`,
                           backgroundClip: text.gradient.enabled && !text.background.enabled ? "text" : undefined,
                           WebkitBackgroundClip: text.gradient.enabled && !text.background.enabled ? "text" : undefined,
                           WebkitTextFillColor: text.gradient.enabled && !text.background.enabled ? "transparent" : undefined,
                           textShadow: editorShadow,
                           WebkitTextStroke: editorStrokeWidth ? `${editorStrokeWidth}px ${text.outline.color}` : "0 transparent",
                           filter: canShowEditorEffects && text.glow.enabled ? `drop-shadow(0 0 ${Math.min(4, Math.max(1, text.glow.blur * currentPreviewScale))}px ${text.glow.color})` : undefined,
-                          boxShadow: canShowEditorEffects && text.doubleOutline.enabled ? `0 0 0 ${Math.min(3, Math.max(1, text.doubleOutline.width * currentPreviewScale * 0.28))}px ${text.doubleOutline.color}` : undefined
+                          boxShadow: editorBoxShadows
                         }}
                         onPointerDown={(event) => editingTextId === text.id ? undefined : handleTextPointerDown(text, event)}
                         onPointerMove={handleTextPointerMove}

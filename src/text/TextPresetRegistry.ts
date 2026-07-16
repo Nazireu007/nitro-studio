@@ -27,7 +27,16 @@ export const letteringPresets: LetteringPreset[] = [
   { id: "tech", name: "Tecnologia", category: "Tecnologia", description: "Azul elétrico com brilho e espaçamento." },
   { id: "party", name: "Festa", category: "Festa", description: "Vibrante, alegre e com contorno visível." },
   { id: "outline-name", name: "Nome com contorno", category: "Sublimação", description: "Base segura para camisa, caneca e A4." },
-  { id: "vibrant", name: "Sublimação vibrante", category: "Sublimação", description: "Cor forte e sombra limpa para impressão." }
+  { id: "vibrant", name: "Sublimação vibrante", category: "Sublimação", description: "Cor forte e sombra limpa para impressão." },
+  { id: "badge", name: "Crachá premium", category: "Sublimação", description: "Nome dentro de moldura arredondada para camisa e caneca." },
+  { id: "ribbon", name: "Faixa dobrada", category: "Festa", description: "Letreiro em faixa com pontas para nome de evento." },
+  { id: "stamp", name: "Carimbo artesanal", category: "Retrô", description: "Borda tracejada com visual de etiqueta e produto feito à mão." },
+  { id: "plaque", name: "Placa vintage", category: "Elegante", description: "Moldura de placa com cantos marcados." },
+  { id: "seal", name: "Selo circular", category: "Sublimação", description: "Nome em selo para chaveiro, brinde e etiqueta." },
+  { id: "comic-pop", name: "Gibi explosivo", category: "Infantil", description: "Cores fortes, contorno grosso e cara divertida." },
+  { id: "chrome", name: "Cromado tech", category: "Tecnologia", description: "Degradê frio e contorno escuro para logo moderno." },
+  { id: "shadow-block", name: "Sombra bloco", category: "Esportivo", description: "Letra pesada com sombra deslocada para impacto." },
+  { id: "script-love", name: "Nome romântico", category: "Romântico", description: "Curva delicada, moldura suave e brilho leve." }
 ];
 
 export const presetCategories = Array.from(new Set(letteringPresets.map((preset) => preset.category)));
@@ -42,6 +51,7 @@ export const applyLetteringPreset = (text: TextObject, presetId: TextEffectPrese
   const shared = {
     background: { ...base.background, enabled: false },
     doubleOutline: { ...base.doubleOutline, enabled: false, width: 0 },
+    frame: { ...base.frame, enabled: false, style: "none" as const },
     glow: { ...base.glow, enabled: false, blur: 0 },
     gradient: { ...base.gradient, enabled: false },
     shadow: { ...base.shadow, enabled: true, long: false, blur: 8, offsetX: 7, offsetY: 7 }
@@ -84,6 +94,7 @@ export const applyLetteringPreset = (text: TextObject, presetId: TextEffectPrese
       bold: true,
       outline: { enabled: true, color: "#ffffff", width: 8 },
       background: { enabled: true, color: "rgba(254, 249, 195, 0.86)", padding: 12, radius: 14 },
+      frame: { enabled: true, style: "badge", color: "#f59e0b", accentColor: "#ec4899", width: 5, padding: 18, radius: 22 },
       gradient: { enabled: true, from: "#ec4899", to: "#22c55e", angle: 0 }
     };
   }
@@ -150,6 +161,148 @@ export const applyLetteringPreset = (text: TextObject, presetId: TextEffectPrese
       bold: true,
       outline: { enabled: true, color: "#ffffff", width: 8 },
       shadow: { enabled: true, color: "rgba(15, 23, 42, 0.3)", blur: 6, offsetX: 6, offsetY: 6, long: false }
+    };
+  }
+
+  if (presetId === "badge") {
+    return {
+      ...base,
+      ...shared,
+      fontFamily: "Arial",
+      color: "#064e3b",
+      bold: true,
+      caseMode: "upper",
+      letterSpacing: 1,
+      background: { enabled: true, color: "rgba(236, 253, 245, 0.92)", padding: 18, radius: 18 },
+      frame: { enabled: true, style: "badge", color: "#0f766e", accentColor: "#14b8a6", width: 6, padding: 22, radius: 24 },
+      outline: { enabled: true, color: "#ffffff", width: 5 },
+      shadow: { enabled: true, color: "rgba(15, 118, 110, 0.22)", blur: 10, offsetX: 4, offsetY: 6, long: false }
+    };
+  }
+
+  if (presetId === "ribbon") {
+    return {
+      ...base,
+      ...shared,
+      fontFamily: "Georgia",
+      color: "#ffffff",
+      bold: true,
+      caseMode: "upper",
+      letterSpacing: 1,
+      background: { enabled: true, color: "rgba(190, 18, 60, 0.94)", padding: 18, radius: 8 },
+      frame: { enabled: true, style: "ribbon", color: "#be123c", accentColor: "#fda4af", width: 6, padding: 24, radius: 10 },
+      outline: { enabled: true, color: "#881337", width: 5 },
+      shadow: { enabled: true, color: "rgba(76, 5, 25, 0.35)", blur: 4, offsetX: 8, offsetY: 8, long: false }
+    };
+  }
+
+  if (presetId === "stamp") {
+    return {
+      ...base,
+      ...shared,
+      fontFamily: "Courier New",
+      color: "#7c2d12",
+      bold: true,
+      caseMode: "upper",
+      letterSpacing: 3,
+      background: { enabled: true, color: "rgba(255, 247, 237, 0.72)", padding: 16, radius: 10 },
+      frame: { enabled: true, style: "stamp", color: "#9a3412", accentColor: "#fed7aa", width: 5, padding: 22, radius: 14 },
+      outline: { enabled: false, color: "#ffffff", width: 0 },
+      shadow: { enabled: false, color: "rgba(15, 23, 42, 0.2)", blur: 0, offsetX: 0, offsetY: 0, long: false }
+    };
+  }
+
+  if (presetId === "plaque") {
+    return {
+      ...base,
+      ...shared,
+      fontFamily: "Georgia",
+      color: "#fef3c7",
+      bold: true,
+      background: { enabled: true, color: "rgba(120, 53, 15, 0.95)", padding: 20, radius: 14 },
+      frame: { enabled: true, style: "plaque", color: "#f59e0b", accentColor: "#fff7ed", width: 7, padding: 26, radius: 18 },
+      gradient: { enabled: true, from: "#fff7ed", to: "#f59e0b", angle: 0 },
+      outline: { enabled: true, color: "#451a03", width: 5 },
+      shadow: { enabled: true, color: "rgba(69, 26, 3, 0.38)", blur: 10, offsetX: 7, offsetY: 9, long: false }
+    };
+  }
+
+  if (presetId === "seal") {
+    return {
+      ...base,
+      ...shared,
+      fontFamily: "Trebuchet MS",
+      color: "#0f172a",
+      bold: true,
+      caseMode: "upper",
+      curve: { ...base.curve, mode: "arc-up", intensity: 16, radius: Math.max(base.width * 0.6, 180), spacing: 2, invert: false },
+      background: { enabled: true, color: "rgba(255, 255, 255, 0.76)", padding: 18, radius: 999 },
+      frame: { enabled: true, style: "seal", color: "#0f766e", accentColor: "#e11d48", width: 7, padding: 26, radius: 999 },
+      outline: { enabled: true, color: "#ffffff", width: 5 },
+      shadow: { enabled: true, color: "rgba(15, 23, 42, 0.18)", blur: 8, offsetX: 3, offsetY: 5, long: false }
+    };
+  }
+
+  if (presetId === "comic-pop") {
+    return {
+      ...base,
+      ...shared,
+      fontFamily: "Comic Sans MS",
+      color: "#facc15",
+      bold: true,
+      caseMode: "upper",
+      letterSpacing: 1,
+      outline: { enabled: true, color: "#111827", width: 9 },
+      doubleOutline: { enabled: true, color: "#ef4444", width: 16 },
+      frame: { enabled: true, style: "label", color: "#2563eb", accentColor: "#facc15", width: 6, padding: 18, radius: 16 },
+      shadow: { enabled: true, color: "rgba(37, 99, 235, 0.42)", blur: 2, offsetX: 10, offsetY: 10, long: true }
+    };
+  }
+
+  if (presetId === "chrome") {
+    return {
+      ...base,
+      ...shared,
+      fontFamily: "Arial",
+      color: "#e5e7eb",
+      bold: true,
+      caseMode: "upper",
+      letterSpacing: 2,
+      gradient: { enabled: true, from: "#f8fafc", to: "#64748b", angle: 0 },
+      outline: { enabled: true, color: "#020617", width: 7 },
+      doubleOutline: { enabled: true, color: "#38bdf8", width: 12 },
+      glow: { enabled: true, color: "#38bdf8", blur: 12 },
+      shadow: { enabled: true, color: "rgba(2, 6, 23, 0.44)", blur: 8, offsetX: 7, offsetY: 8, long: false }
+    };
+  }
+
+  if (presetId === "shadow-block") {
+    return {
+      ...base,
+      ...shared,
+      fontFamily: "Impact",
+      color: "#ffffff",
+      bold: true,
+      caseMode: "upper",
+      outline: { enabled: true, color: "#0f172a", width: 8 },
+      doubleOutline: { enabled: true, color: "#f97316", width: 13 },
+      shadow: { enabled: true, color: "#0f766e", blur: 0, offsetX: 16, offsetY: 16, long: true }
+    };
+  }
+
+  if (presetId === "script-love") {
+    return {
+      ...base,
+      ...shared,
+      fontFamily: "Georgia",
+      color: "#be123c",
+      italic: true,
+      curve: { ...base.curve, mode: "arc-down", intensity: 12, radius: Math.max(base.width * 0.7, 180), spacing: 1, invert: false },
+      background: { enabled: true, color: "rgba(255, 241, 242, 0.82)", padding: 18, radius: 999 },
+      frame: { enabled: true, style: "seal", color: "#fb7185", accentColor: "#be123c", width: 5, padding: 24, radius: 999 },
+      outline: { enabled: true, color: "#ffffff", width: 6 },
+      glow: { enabled: true, color: "#fb7185", blur: 8 },
+      shadow: { enabled: true, color: "rgba(190, 18, 60, 0.2)", blur: 8, offsetX: 4, offsetY: 6, long: false }
     };
   }
 
