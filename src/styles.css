@@ -37,9 +37,12 @@ button:disabled {
 .dashboard-shell,
 .mission-shell {
   display: grid;
+  height: 100vh;
   min-height: 100vh;
-  place-items: center;
+  align-items: start;
+  justify-items: center;
   padding: 24px;
+  overflow-y: auto;
   background:
     linear-gradient(120deg, rgba(15, 118, 110, 0.13), transparent 38%),
     linear-gradient(300deg, rgba(225, 29, 72, 0.1), transparent 34%),
@@ -280,8 +283,15 @@ button:disabled {
 .dashboard-card-heading {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   color: #263244;
+}
+
+.dashboard-card-heading > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .dashboard-card-heading svg {
@@ -296,10 +306,15 @@ button:disabled {
 .recent-list {
   display: grid;
   gap: 8px;
+  max-height: min(420px, 48vh);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .recent-project {
   display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
   gap: 3px;
   width: 100%;
   padding: 10px;
@@ -308,6 +323,46 @@ button:disabled {
   color: #18202b;
   background: #f8fafc;
   text-align: left;
+}
+
+.recent-project.is-checked {
+  border-color: rgba(15, 118, 110, 0.42);
+  background: #ecfdf5;
+}
+
+.recent-project button {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.recent-check {
+  display: grid;
+  place-items: center;
+}
+
+.recent-check input {
+  width: 17px;
+  height: 17px;
+  accent-color: #0f766e;
+}
+
+.dashboard-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.danger-mini {
+  color: #be123c;
+  border-color: rgba(190, 18, 60, 0.22);
+  background: #fff1f2;
 }
 
 .recent-project strong,
@@ -1580,6 +1635,53 @@ button:disabled {
   font-weight: 900;
 }
 
+.stage-text-toolbar {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.3fr) minmax(120px, 0.8fr) 72px 44px repeat(5, auto);
+  gap: 7px;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(24, 32, 43, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.stage-text-toolbar input,
+.stage-text-toolbar select,
+.stage-text-toolbar button {
+  min-height: 34px;
+  min-width: 0;
+  border: 1px solid rgba(24, 32, 43, 0.12);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #18202b;
+  font-weight: 850;
+}
+
+.stage-text-toolbar input,
+.stage-text-toolbar select {
+  padding: 0 9px;
+}
+
+.stage-text-toolbar input[type="color"] {
+  padding: 3px;
+}
+
+.stage-text-toolbar button {
+  padding: 0 10px;
+}
+
+.stage-text-toolbar button.is-active {
+  color: #ffffff;
+  border-color: #0f766e;
+  background: #0f766e;
+}
+
+.stage-text-toolbar .danger-inline {
+  color: #be123c;
+  border-color: rgba(190, 18, 60, 0.22);
+  background: #fff1f2;
+}
+
 .stage-actions {
   display: inline-flex;
   flex: 0 0 auto;
@@ -2421,6 +2523,24 @@ button:disabled {
     padding: 18px;
   }
 
+  .dashboard-card-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-card-actions {
+    justify-content: stretch;
+  }
+
+  .dashboard-card-actions .mini-button {
+    flex: 1 1 auto;
+  }
+
+  .recent-list {
+    max-height: none;
+    overflow: visible;
+  }
+
   .dashboard-header,
   .dashboard-hero {
     grid-template-columns: 1fr;
@@ -2579,6 +2699,15 @@ button:disabled {
   .stage-text-button,
   .stage-actions .toggle {
     width: 100%;
+  }
+
+  .stage-text-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .stage-text-toolbar > input:first-child,
+  .stage-text-toolbar select {
+    grid-column: 1 / -1;
   }
 
   .preset-grid,

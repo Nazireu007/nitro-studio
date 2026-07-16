@@ -521,6 +521,7 @@ export const App = () => {
   const [homeView, setHomeView] = useState<HomeView>("dashboard");
   const [activeMission, setActiveMission] = useState<MissionId | null>(null);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
+  const [checkedRecentProjectIds, setCheckedRecentProjectIds] = useState<string[]>([]);
   const [productUsage, setProductUsage] = useState<ProductUsage>(loadProductUsage);
   const [history, setHistory] = useState<Settings[]>([]);
   const [redoHistory, setRedoHistory] = useState<Settings[]>([]);
@@ -837,7 +838,7 @@ export const App = () => {
     setMessage(`Papel em ${sheetRotationLabels[sheetRotationDeg]}.`);
   };
 
-  const getRenderOptions = (previewScale?: number) => ({
+  const getRenderOptions = (previewScale?: number, includeText = true) => ({
     sourceUrl: sourceImage?.url ?? "",
     montageSources: montageImages.map((image) => ({
       url: image.url,
@@ -873,7 +874,7 @@ export const App = () => {
     },
     pageRotationDeg: (settings.sheetRotationDeg === 180 || settings.sheetRotationDeg === 270 ? 180 : 0) as 0 | 180,
     previewScale,
-    textObjects
+    textObjects: includeText ? textObjects : []
   });
 
   const resetCrop = () => {
@@ -993,8 +994,8 @@ export const App = () => {
   };
 
   const applyNitroPlan = () => {
-    if (!sourceImage) {
-      setMessage("Importe uma arte para o Nitro preparar o plano.");
+    if (!sourceImage && !textObjects.length) {
+      setMessage("Importe uma arte ou adicione um texto para o Nitro preparar o plano.");
       quickFileInputRef.current?.click();
       return;
     }
@@ -1007,7 +1008,7 @@ export const App = () => {
     updateSettings({
       sheetId: destination.recommendedSheet,
       fitMode: nextFitMode,
-      dpi: sourceImage && sourceImage.width * sourceImage.height < 1_800_000 ? 200 : 300,
+      dpi: sourceImage && sourceImage.width * sourceImage.height < 1_800_000 ? 200 : settings.dpi,
       bleedMm: destination.category === "Tecido" ? 0 : 2,
       marginMm: destination.id === "shirt-a3" ? 8 : 6,
       gapMm: destination.id === "mug-11oz" ? 6 : 4,
@@ -1511,6 +1512,35 @@ export const App = () => {
     }));
   };
 
+  const getRecentProjectKey = (project: RecentProject) => `${project.id}-${project.updatedAt}`;
+
+  const persistRecentProjects = (projects: RecentProject[]) => {
+    setRecentProjects(projects);
+    try {
+      window.localStorage.setItem(RECENT_PROJECTS_STORAGE_KEY, JSON.stringify(projects));
+    } catch {
+      setMessage("Não consegui atualizar os trabalhos recentes no navegador.");
+    }
+  };
+
+  const toggleRecentProject = (projectKey: string) => {
+    setCheckedRecentProjectIds((current) =>
+      current.includes(projectKey) ? current.filter((id) => id !== projectKey) : [...current, projectKey]
+    );
+  };
+
+  const selectAllRecentProjects = () => {
+    setCheckedRecentProjectIds(recentProjects.map(getRecentProjectKey));
+  };
+
+  const deleteSelectedRecentProjects = () => {
+    if (!checkedRecentProjectIds.length) return;
+    const nextProjects = recentProjects.filter((project) => !checkedRecentProjectIds.includes(getRecentProjectKey(project)));
+    persistRecentProjects(nextProjects);
+    setCheckedRecentProjectIds([]);
+    setMessage(`${recentProjects.length - nextProjects.length} trabalho(s) recente(s) removido(s).`);
+  };
+
   const startMission = (missionId: MissionId) => {
     const missionSettings: Record<MissionId, Partial<Settings>> = {
       shirt: {
@@ -1753,8 +1783,8 @@ export const App = () => {
   };
 
   const openPrintSimulation = () => {
-    if (!sourceImage) {
-      setMessage("Importe uma arte antes de imprimir.");
+    if (!sourceImage && !textObjects.length) {
+      setMessage("Importe uma arte ou adicione um texto antes de imprimir.");
       quickFileInputRef.current?.click();
       return;
     }
@@ -1796,8 +1826,8 @@ export const App = () => {
   };
 
   const arrangeArtwork = () => {
-    if (!sourceImage) {
-      setMessage("Importe uma arte para o Nitro arrumar.");
+    if (!sourceImage && !textObjects.length) {
+      setMessage("Importe uma arte ou adicione um texto para o Nitro arrumar.");
       quickFileInputRef.current?.click();
       return;
     }
@@ -1807,36 +1837,60 @@ export const App = () => {
       return;
     }
 
+    const imageRatio = croppedImageSize ? croppedImageSize.width / croppedImageSize.height : destination.widthMm / destination.heightMm;
+    const targetRatio = destination.widthMm / destination.heightMm;
+    const ratioDelta = Math.abs(imageRatio - targetRatio) / Math.max(0.01, targetRatio);
+    const lowDefinition = Boolean(plan && plan.effectiveDpi < 180);
+    const shouldFillArea = Boolean(sourceImage && !lowDefinition && ratioDelta < 0.16 && settings.fitMode !== "repeat");
     const next: Partial<Settings> = {
-      fitMode: plan?.effectiveDpi && plan.effectiveDpi < 170 ? "contain" : settings.fitMode,
-      imageScale: plan?.effectiveDpi && plan.effectiveDpi < 170 ? Math.max(0.78, settings.imageScale * 0.88) : settings.imageScale,
+      sheetId: plan?.scaleFactor && plan.scaleFactor < 0.98
+        ? settings.sheetId === "a4" ? "a3" : "sublimation-30x40"
+        : destination.recommendedSheet,
+      fitMode: shouldFillArea ? "cover" : "contain",
+      dpi: sourceImage && sourceImage.width * sourceImage.height < 1_800_000 ? 200 : settings.dpi,
+      bleedMm: destination.category === "Tecido" ? 0 : Math.max(settings.bleedMm, 2),
+      marginMm: destination.id === "shirt-a3" || destination.id === "ecobag" ? Math.max(settings.marginMm, 8) : Math.max(settings.marginMm, 5),
+      gapMm: destination.id === "mug-11oz" ? 6 : Math.max(settings.gapMm, 4),
+      imageScale: lowDefinition ? Math.max(0.74, Number((settings.imageScale * 0.86).toFixed(2))) : 1,
       imageScaleX: 1,
       imageScaleY: 1,
       offsetXmm: 0,
       offsetYmm: 0,
       rotationDeg: 0,
       flipVertical: false,
+      brightness: sourceImage ? Math.max(96, settings.brightness) : settings.brightness,
+      contrast: sourceImage ? Math.max(108, settings.contrast) : settings.contrast,
+      saturation: sourceImage ? Math.max(112, settings.saturation) : settings.saturation,
+      mirror: destination.category !== "Livre",
       cutMarks: true,
       safeArea: true,
       showGuides: true,
       technicalLabel: true
     };
 
-    if (plan?.scaleFactor && plan.scaleFactor < 0.98) {
-      next.sheetId = settings.sheetId === "a4" ? "a3" : "sublimation-30x40";
-    }
-
     if (plan && plan.wastePercent > 60 && plan.maxCopies > 1) {
-      next.copies = plan.maxCopies;
+      next.copies = destination.id === "custom" || destination.id === "tile-15" || destination.id === "keychain"
+        ? plan.maxCopies
+        : Math.min(settings.copies, plan.maxCopies);
     }
 
     updateSettings(next);
-    setMessage("Nitro ajustou encaixe, produção e aproveitamento da arte.");
+    if (textObjects.length && plan) {
+      updateTextObjects((current) =>
+        current.map((text) => ({
+          ...text,
+          x: Math.min(Math.max(text.x, plan.marginPx), plan.sheetPx.width - plan.marginPx),
+          y: Math.min(Math.max(text.y, plan.marginPx), plan.sheetPx.height - plan.marginPx),
+          width: Math.min(text.width, Math.round(plan.sheetPx.width - plan.marginPx * 2))
+        }))
+      );
+    }
+    setMessage("Arrumar Minha Arte aplicou encaixe, folha, DPI, guias, cores, espelhamento e aproveitamento.");
   };
 
   const acceptRecommendation = () => {
-    if (!sourceImage) {
-      setMessage("Importe uma arte para o Nitro recomendar o plano correto.");
+    if (!sourceImage && !textObjects.length) {
+      setMessage("Importe uma arte ou adicione um texto para o Nitro recomendar o plano correto.");
       quickFileInputRef.current?.click();
       return;
     }
@@ -1856,7 +1910,7 @@ export const App = () => {
     const next: Partial<Settings> = {
       sheetId: suggestedSheet,
       fitMode: suggestedFitMode,
-      dpi: sourceImage.width * sourceImage.height < 1_800_000 ? 200 : 300,
+      dpi: sourceImage && sourceImage.width * sourceImage.height < 1_800_000 ? 200 : settings.dpi,
       bleedMm: destination.category === "Tecido" ? 0 : Math.max(settings.bleedMm, 2),
       marginMm: destination.id === "shirt-a3" ? Math.max(settings.marginMm, 8) : Math.max(settings.marginMm, 6),
       gapMm: destination.id === "mug-11oz" ? 6 : Math.max(settings.gapMm, 4),
@@ -2127,7 +2181,7 @@ export const App = () => {
       Math.max(0.08, (previewBounds.height - 42) / plan.sheetPx.height)
     );
     setCurrentPreviewScale(scale);
-    void renderPrintCanvas(previewCanvasRef.current, plan, getRenderOptions(scale)).catch((error) =>
+    void renderPrintCanvas(previewCanvasRef.current, plan, getRenderOptions(scale, false)).catch((error) =>
       setMessage(error instanceof Error ? error.message : "Erro no preview.")
     );
   }, [montageImages, plan, previewBounds, settings, sourceImage, textObjects]);
@@ -2231,6 +2285,7 @@ export const App = () => {
       } catch {
         // Recent projects are helpful context, not required data.
       }
+      setCheckedRecentProjectIds((checked) => checked.filter((id) => nextProjects.some((project) => getRecentProjectKey(project) === id)));
       return nextProjects;
     });
   }, [currentMission?.title, destination.id, destination.label, images.length, sheet.label, sourceImage]);
@@ -2305,26 +2360,47 @@ export const App = () => {
           <div className="dashboard-grid">
             <section className="dashboard-card dashboard-card-wide">
               <div className="dashboard-card-heading">
-                <Images size={18} />
-                <h2>Últimos projetos</h2>
+                <span>
+                  <Images size={18} />
+                  <h2>Últimos projetos</h2>
+                </span>
+                {recentProjects.length > 0 && (
+                  <div className="dashboard-card-actions">
+                    <button className="mini-button" onClick={selectAllRecentProjects}>Selecionar</button>
+                    <button className="mini-button" onClick={() => setCheckedRecentProjectIds([])} disabled={!checkedRecentProjectIds.length}>Limpar</button>
+                    <button className="mini-button danger-mini" onClick={deleteSelectedRecentProjects} disabled={!checkedRecentProjectIds.length}>
+                      Excluir {checkedRecentProjectIds.length || ""}
+                    </button>
+                  </div>
+                )}
               </div>
               {recentProjects.length ? (
                 <div className="recent-list">
-                  {recentProjects.slice(0, 4).map((project) => (
-                    <button
-                      className="recent-project"
-                      key={`${project.id}-${project.updatedAt}`}
-                      type="button"
-                      onClick={() => {
-                        setHomeView("mission");
-                        setMessage(`Use ${project.destinationLabel} como referência e importe a arte novamente.`);
-                      }}
-                    >
-                      <strong>{project.name}</strong>
-                      <span>{project.destinationLabel} · {project.sheetLabel}</span>
-                      <small>{project.imageCount} arte(s) · {formatDashboardDate(project.updatedAt)}</small>
-                    </button>
-                  ))}
+                  {recentProjects.map((project) => {
+                    const projectKey = getRecentProjectKey(project);
+                    return (
+                      <article className={checkedRecentProjectIds.includes(projectKey) ? "recent-project is-checked" : "recent-project"} key={projectKey}>
+                        <label className="recent-check">
+                          <input
+                            type="checkbox"
+                            checked={checkedRecentProjectIds.includes(projectKey)}
+                            onChange={() => toggleRecentProject(projectKey)}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHomeView("mission");
+                            setMessage(`Use ${project.destinationLabel} como referência e importe a arte novamente.`);
+                          }}
+                        >
+                          <strong>{project.name}</strong>
+                          <span>{project.destinationLabel} · {project.sheetLabel}</span>
+                          <small>{project.imageCount} arte(s) · {formatDashboardDate(project.updatedAt)}</small>
+                        </button>
+                      </article>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="dashboard-empty">
@@ -3341,6 +3417,33 @@ export const App = () => {
             <div className="stage-hint">
               <Move size={15} />
               Arraste a arte, selecione textos ou puxe as alças para ajustar.
+            </div>
+          )}
+          {selectedText && (
+            <div className="stage-text-toolbar" aria-label="Barra simples do texto">
+              <input
+                value={selectedText.content}
+                onChange={(event) => updateSelectedText({ content: event.target.value })}
+                aria-label="Editar texto"
+              />
+              <select value={selectedText.fontFamily} onChange={(event) => updateSelectedText({ fontFamily: event.target.value })} aria-label="Fonte">
+                {fonts.map((font) => <option key={font.id} value={font.family}>{font.name}</option>)}
+              </select>
+              <input
+                className="text-size-input"
+                type="number"
+                min="8"
+                max="420"
+                value={selectedText.fontSize}
+                onChange={(event) => updateSelectedText({ fontSize: Number(event.target.value) })}
+                aria-label="Tamanho"
+              />
+              <input type="color" value={selectedText.color} onChange={(event) => updateSelectedText({ color: event.target.value })} aria-label="Cor" />
+              <button className={selectedText.bold ? "is-active" : ""} onClick={() => updateSelectedText({ bold: !selectedText.bold })}>B</button>
+              <button className={selectedText.italic ? "is-active" : ""} onClick={() => updateSelectedText({ italic: !selectedText.italic })}>I</button>
+              <button onClick={fitSelectedTextToArea}>Encaixar</button>
+              <button onClick={duplicateSelectedText}>Duplicar</button>
+              <button className="danger-inline" onClick={deleteSelectedText}>Excluir</button>
             </div>
           )}
 
