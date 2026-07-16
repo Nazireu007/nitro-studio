@@ -219,6 +219,8 @@ const isUneditedPlaceholderText = (text: TextObject) => {
   return content === TEXT_PLACEHOLDER;
 };
 
+const isBlankTextObject = (text: TextObject) => !text.content.replace(/\s+/g, " ").trim();
+
 const cleanupPlaceholderTexts = (items: TextObject[], keepId?: string | null) => {
   const placeholders = items.filter(isUneditedPlaceholderText);
   if (!placeholders.length) return items;
@@ -238,6 +240,9 @@ const cleanupPlaceholderTexts = (items: TextObject[], keepId?: string | null) =>
   return items.filter((item) => !isUneditedPlaceholderText(item) || item.id === keepPlaceholder.id);
 };
 
+const getStoredTextObjects = (items: TextObject[]) =>
+  cleanupPlaceholderTexts(items).filter((item) => !isBlankTextObject(item) && !isUneditedPlaceholderText(item));
+
 const loadAutosavedTextObjects = (): TextObject[] => {
   if (typeof window === "undefined") return [];
 
@@ -246,7 +251,7 @@ const loadAutosavedTextObjects = (): TextObject[] => {
     if (!savedWorkspace) return [];
     const parsed = JSON.parse(savedWorkspace) as { textObjects?: TextObject[] };
     return Array.isArray(parsed.textObjects)
-      ? cleanupPlaceholderTexts(parsed.textObjects.map((text) => normalizeTextObject(text)))
+      ? getStoredTextObjects(parsed.textObjects.map((text) => normalizeTextObject(text)))
       : [];
   } catch {
     return [];
@@ -544,17 +549,36 @@ const sheetRotationLabels: Record<Settings["sheetRotationDeg"], string> = {
 };
 const textColorPalette = [
   "#111827",
+  "#374151",
+  "#6b7280",
+  "#d1d5db",
   "#ffffff",
-  "#dc2626",
+  "#ff0000",
+  "#b91c1c",
+  "#7f1d1d",
+  "#ff6b00",
   "#f97316",
+  "#f59e0b",
+  "#ffd700",
   "#facc15",
+  "#84cc16",
   "#22c55e",
+  "#15803d",
   "#0f766e",
+  "#14b8a6",
+  "#06b6d4",
   "#38bdf8",
   "#2563eb",
+  "#1d4ed8",
+  "#312e81",
   "#7c3aed",
+  "#a855f7",
+  "#c026d3",
   "#ec4899",
-  "#92400e"
+  "#be185d",
+  "#fb7185",
+  "#92400e",
+  "#78350f"
 ];
 
 type TextStyleDraft = {
@@ -914,7 +938,7 @@ export const App = () => {
         version: 1,
         savedAt,
         settings: nextSettings,
-        textObjects: cleanupPlaceholderTexts(nextTextObjects, nextSelectedTextId)
+        textObjects: getStoredTextObjects(nextTextObjects)
       })
     );
     setLastAutosaveAt(savedAt);
@@ -1536,26 +1560,31 @@ export const App = () => {
   const applyTextStyleDraft = () => {
     if (!selectedText || !textStyleDraft) return;
 
-    const nextText = textStyleDirty.effectPreset
+    const presetText = textStyleDirty.effectPreset
       ? applyLetteringPreset(selectedText, textStyleDraft.effectPreset)
       : selectedText;
-    const patch: Partial<TextObject> = {};
 
-    if (textStyleDirty.fontFamily) patch.fontFamily = textStyleDraft.fontFamily;
-    if (textStyleDirty.color) patch.color = textStyleDraft.color;
-    if (textStyleDirty.fontSize) patch.fontSize = textStyleDraft.fontSize;
-    if (textStyleDirty.bold) patch.bold = textStyleDraft.bold;
-    if (textStyleDirty.italic) patch.italic = textStyleDraft.italic;
-    if (textStyleDirty.curveMode) {
-      patch.curve = {
-        ...nextText.curve,
+    const styledText: TextObject = {
+      ...presetText,
+      fontFamily: textStyleDraft.fontFamily,
+      color: textStyleDraft.color,
+      fontSize: textStyleDraft.fontSize,
+      bold: textStyleDraft.bold,
+      italic: textStyleDraft.italic,
+      effectPreset: textStyleDraft.effectPreset,
+      curve: {
+        ...presetText.curve,
         mode: textStyleDraft.curveMode,
-        intensity: textStyleDraft.curveMode === "straight" ? 0 : Math.max(nextText.curve.intensity, 18)
-      };
+        intensity: textStyleDraft.curveMode === "straight" ? 0 : Math.max(presetText.curve.intensity, 18)
+      }
+    };
+    const nextTexts = textObjects.map((item) => (item.id === selectedText.id ? styledText : item));
+    updateTextObjects(nextTexts);
+    try {
+      persistWorkspace(settings, nextTexts, selectedText.id);
+    } catch {
+      setMessage("Estilo aplicado, mas o autosave local vai tentar salvar novamente.");
     }
-
-    const styledText = { ...nextText, ...patch };
-    updateTextObjects((current) => current.map((item) => (item.id === selectedText.id ? styledText : item)));
     syncTextStyleDraft(styledText);
     setMessage("Estilo aplicado ao texto selecionado.");
   };
@@ -1563,6 +1592,7 @@ export const App = () => {
   const selectFontForText = (font: FontRecord) => {
     if (!selectedText) return;
     updateTextStyleDraft("fontFamily", font.family);
+    setIsTextToolsOpen(true);
     setFonts((current) => current.map((item) => (item.id === font.id ? { ...item, lastUsedAt: Date.now() } : item)));
     setMessage("Fonte escolhida. Clique em Aplicar estilo para usar no texto.");
   };
@@ -3108,6 +3138,26 @@ export const App = () => {
                 ))}
               </div>
             </div>
+            {selectedText && (
+              <div className="text-workflow-card">
+                <div>
+                  <strong>Texto selecionado</strong>
+                  <small>Edite cor, fonte, efeitos e curvas pela barra única acima do papel.</small>
+                </div>
+                <div className="text-workflow-actions">
+                  <button className="text-button" onClick={() => setIsTextToolsOpen(true)}>
+                    <FileText size={15} />
+                    Abrir edição
+                  </button>
+                  <button className="text-button" onClick={duplicateSelectedText}>
+                    Duplicar
+                  </button>
+                  <button className="danger-button" onClick={deleteSelectedText}>
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            )}
             {selectedText ? (
               <div className="text-controls">
                 <label className="field">
@@ -3302,6 +3352,51 @@ export const App = () => {
             ) : (
               <div className="quiet-state">Adicione ou selecione um texto para editar letreiros.</div>
             )}
+            <div className="font-manager compact-font-manager">
+              <div className="text-row">
+                <input className="font-search" placeholder="Buscar fonte" value={fontSearch} onChange={(event) => setFontSearch(event.target.value)} />
+                <select value={fontCategory} onChange={(event) => setFontCategory(event.target.value)}>
+                  {fontCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                </select>
+              </div>
+              <button className="text-button full" onClick={() => fontFileInputRef.current?.click()}>Adicionar minhas fontes</button>
+              <small>Biblioteca de fontes. Para aplicar uma fonte, selecione um texto e clique em Aplicar estilo.</small>
+              <div className="font-list">
+                {filteredFonts.slice(0, 10).map((font) => (
+                  <div
+                    className={selectedText?.fontFamily === font.family ? "font-option is-selected" : "font-option"}
+                    key={font.id}
+                    role="button"
+                    tabIndex={0}
+                    style={{ fontFamily: font.family }}
+                    onClick={() => selectedText ? selectFontForText(font) : setMessage("Selecione ou crie um texto antes de escolher a fonte.")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        if (selectedText) selectFontForText(font);
+                        else setMessage("Selecione ou crie um texto antes de escolher a fonte.");
+                      }
+                    }}
+                  >
+                    <span>Nitro Studio</span>
+                    <small>{font.name}</small>
+                    <button type="button" className={font.favorite ? "font-star is-active" : "font-star"} onClick={(event) => { event.stopPropagation(); toggleFontFavorite(font); }}>★</button>
+                    {font.source === "imported" && (
+                      <button
+                        type="button"
+                        className="font-remove"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void deleteImportedFont(font);
+                        }}
+                        aria-label={`Excluir fonte ${font.name}`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
 
           <section className="panel compact-panel">
