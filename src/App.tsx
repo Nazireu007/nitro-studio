@@ -626,6 +626,25 @@ export const App = () => {
     () => textObjects.find((item) => item.id === selectedTextId) ?? null,
     [selectedTextId, textObjects]
   );
+
+  useEffect(() => {
+    if (selectedTextId && !selectedText) {
+      setSelectedTextId(null);
+      setEditingTextId(null);
+    }
+  }, [selectedText, selectedTextId]);
+
+  useEffect(() => {
+    setCheckedImageIds((current) => {
+      const validIds = new Set(images.map((image) => image.id));
+      const next = current.filter((id) => validIds.has(id));
+      return next.length === current.length ? current : next;
+    });
+    if (selectedImageId && !images.some((image) => image.id === selectedImageId)) {
+      setSelectedImageId(images[0]?.id ?? null);
+    }
+  }, [images, selectedImageId]);
+
   const fontCategories = useMemo(() => ["Todas", "Favoritas", "Recentes", "Minhas fontes", ...Array.from(new Set(fonts.map((font) => font.category)))], [fonts]);
   const filteredFonts = useMemo(() => {
     const search = fontSearch.trim().toLowerCase();
@@ -787,17 +806,27 @@ export const App = () => {
 
   const updateSettings = (next: Partial<Settings>) => {
     setSettings((current) => {
+      const updated = { ...current, ...next };
+      const changed = (Object.keys(next) as Array<keyof Settings>).some((key) => !Object.is(current[key], updated[key]));
+      if (!changed) return current;
       setHistory((items) => [current, ...items].slice(0, 10));
       setRedoHistory([]);
-      return { ...current, ...next };
+      return updated;
     });
   };
 
-  const updateTextObjects = (next: TextObject[] | ((current: TextObject[]) => TextObject[])) => {
+  const updateTextObjects = (
+    next: TextObject[] | ((current: TextObject[]) => TextObject[]),
+    options: { trackHistory?: boolean } = {}
+  ) => {
     setTextObjects((current) => {
-      setTextHistory((items) => [current, ...items].slice(0, 20));
-      setTextRedoHistory([]);
-      return typeof next === "function" ? next(current) : next;
+      const resolved = typeof next === "function" ? next(current) : next;
+      if (resolved === current) return current;
+      if (options.trackHistory !== false) {
+        setTextHistory((items) => [current, ...items].slice(0, 20));
+        setTextRedoHistory([]);
+      }
+      return resolved;
     });
   };
 
@@ -811,7 +840,7 @@ export const App = () => {
           version: 1,
           savedAt,
           settings,
-          textObjects
+          textObjects: cleanupPlaceholderTexts(textObjects, selectedTextId)
         })
       );
       setLastAutosaveAt(savedAt);
@@ -1352,8 +1381,9 @@ export const App = () => {
   const updateSelectedTextContent = (content: string) => {
     if (!selectedText) return;
     setEditingTextId(null);
-    updateTextObjects((current) =>
-      cleanupPlaceholderTexts(updateTextObject(current, selectedText.id, { content: content || TEXT_PLACEHOLDER }), selectedText.id)
+    updateTextObjects(
+      (current) => cleanupPlaceholderTexts(updateTextObject(current, selectedText.id, { content: content || TEXT_PLACEHOLDER }), selectedText.id),
+      { trackHistory: false }
     );
   };
 
@@ -2366,23 +2396,27 @@ export const App = () => {
   }, [fonts]);
 
   useEffect(() => {
-    try {
-      const savedAt = Date.now();
-      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      window.localStorage.setItem(
-        WORKSPACE_AUTOSAVE_STORAGE_KEY,
-        JSON.stringify({
-          version: 1,
-          savedAt,
-          settings,
-          textObjects
-        })
-      );
-      setLastAutosaveAt(savedAt);
-    } catch {
-      // Autosave is a convenience layer; failure should never block production.
-    }
-  }, [settings, textObjects]);
+    const timeoutId = window.setTimeout(() => {
+      try {
+        const savedAt = Date.now();
+        window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+        window.localStorage.setItem(
+          WORKSPACE_AUTOSAVE_STORAGE_KEY,
+          JSON.stringify({
+            version: 1,
+            savedAt,
+            settings,
+            textObjects: cleanupPlaceholderTexts(textObjects, selectedTextId)
+          })
+        );
+        setLastAutosaveAt(savedAt);
+      } catch {
+        // Autosave is a convenience layer; failure should never block production.
+      }
+    }, 420);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedTextId, settings, textObjects]);
 
   useEffect(() => {
     try {
@@ -2680,7 +2714,7 @@ export const App = () => {
           <small>{plan ? `${plan.effectiveDpi} DPI efetivos` : "Nitro analisa e corrige"}</small>
           <WandSparkles size={18} />
         </button>
-        <button className={canExport ? "quick-step is-ready" : "quick-step"} onClick={openPrintSimulation} disabled={isPreparing}>
+        <button className={canExport ? "quick-step is-ready" : "quick-step"} onClick={openPrintSimulation} disabled={!canExport || isPreparing}>
           <span>3</span>
           <strong>{isPreparing ? "Preparando" : "Simular impressão"}</strong>
           <small>{canExport ? "Prévia antes de baixar" : "Aguardando plano"}</small>
@@ -2884,10 +2918,6 @@ export const App = () => {
                 <FileText size={18} />
                 <h2>Texto</h2>
               </span>
-              <button className="mini-button" onClick={addTextToSheet}>
-                <Plus size={15} />
-                Adicionar
-              </button>
             </div>
             <input
               ref={fontFileInputRef}
@@ -3388,10 +3418,6 @@ export const App = () => {
               <button className="tool-button" onClick={centerArtwork}>
                 <Maximize size={16} />
                 Centralizar
-              </button>
-              <button className="tool-button" onClick={() => updateSettings({ fitMode: "cover", imageScale: 1, imageScaleX: 1, imageScaleY: 1 })}>
-                <Eye size={16} />
-                Preencher
               </button>
               <button className="tool-button" onClick={stretchArtworkToArea}>
                 <Maximize size={16} />
@@ -4170,11 +4196,11 @@ export const App = () => {
                   <button className="secondary-button" onClick={() => setIsPrintPreviewOpen(false)}>
                     Voltar e ajustar
                   </button>
-                  <button className="secondary-button" onClick={handleExport} disabled={isPreparing}>
+                  <button className="secondary-button" onClick={handleExport} disabled={!canExport || isPreparing}>
                     {isPreparing ? <Sparkles size={18} /> : <Download size={18} />}
                     {isPreparing ? "Gerando" : `Baixar ${settings.exportFormat.toUpperCase()}`}
                   </button>
-                  <button className="primary-button" onClick={handlePrintNow} disabled={isPreparing}>
+                  <button className="primary-button" onClick={handlePrintNow} disabled={!canExport || isPreparing}>
                     {isPreparing ? <Sparkles size={18} /> : <Printer size={18} />}
                     {isPreparing ? "Preparando" : "Imprimir agora"}
                   </button>
