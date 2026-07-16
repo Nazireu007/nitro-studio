@@ -2280,14 +2280,15 @@ export const App = () => {
     if (!canvasWrapRef.current) return;
     const observer = new ResizeObserver(([entry]) => {
       if (!entry) return;
+      const target = entry.target as HTMLElement;
       setPreviewBounds({
-        width: Math.max(260, Math.round(entry.contentRect.width)),
-        height: Math.max(260, Math.round(entry.contentRect.height))
+        width: Math.max(260, Math.round(target.clientWidth || entry.contentRect.width)),
+        height: Math.max(260, Math.round(target.clientHeight || entry.contentRect.height))
       });
     });
     observer.observe(canvasWrapRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [activeMission, homeView]);
 
   useEffect(() => {
     const loadFonts = async () => {
