@@ -645,7 +645,7 @@ export const App = () => {
   const selectedTextIdRef = useRef(selectedTextId);
   const [previewBounds, setPreviewBounds] = useState({ width: 920, height: 680 });
   const [currentPreviewScale, setCurrentPreviewScale] = useState(1);
-  const [paperZoomPercent, setPaperZoomPercent] = useState(100);
+  const [paperZoomPercent, setPaperZoomPercent] = useState(150);
   const sourceImage = useMemo(
     () => images.find((image) => image.id === selectedImageId) ?? images[0] ?? null,
     [images, selectedImageId]
@@ -2475,9 +2475,9 @@ export const App = () => {
       Math.max(0.08, (previewBounds.width - 42) / plan.sheetPx.width),
       Math.max(0.08, (previewBounds.height - 42) / plan.sheetPx.height)
     );
-    const scale = Number(clampNumber(autoScale * (paperZoomPercent / 100), 0.04, 2.5).toFixed(4));
+    const scale = Number(clampNumber(autoScale * (paperZoomPercent / 100), 0.04, 6).toFixed(4));
     setCurrentPreviewScale(scale);
-    void renderPrintCanvas(previewCanvasRef.current, plan, getRenderOptions(scale, false)).catch((error) =>
+    void renderPrintCanvas(previewCanvasRef.current, plan, getRenderOptions(scale, true)).catch((error) =>
       setMessage(error instanceof Error ? error.message : "Erro no preview.")
     );
   }, [montageImages, paperZoomPercent, plan, previewBounds, settings, sourceImage, textObjects]);
@@ -3821,7 +3821,7 @@ export const App = () => {
                 <input
                   type="range"
                   min="25"
-                  max="250"
+                  max="600"
                   step="5"
                   value={paperZoomPercent}
                   onChange={(event) => setPaperZoomPercent(Number(event.target.value))}
@@ -3941,6 +3941,7 @@ export const App = () => {
                 )}
                 <div className="text-layer" aria-label="Textos da arte">
                   {textObjects.map((text) => {
+                    const isEditingText = editingTextId === text.id;
                     const pageFlipped = settings.sheetRotationDeg === 180 || settings.sheetRotationDeg === 270;
                     const displayX = pageFlipped ? plan.sheetPx.width - text.x : text.x;
                     const displayY = pageFlipped ? plan.sheetPx.height - text.y : text.y;
@@ -3983,22 +3984,22 @@ export const App = () => {
                           textAlign: text.align,
                           lineHeight: text.lineHeight,
                           letterSpacing: `${text.letterSpacing * currentPreviewScale}px`,
-                          opacity: text.opacity,
+                          opacity: isEditingText ? text.opacity : 1,
                           transform: `translate(-50%, -50%) rotate(${text.rotation + (pageFlipped ? 180 : 0)}deg) scaleX(${text.mirror ? -1 : 1})`,
-                          background: text.background.enabled ? text.background.color : text.frame.enabled ? "rgba(255, 255, 255, 0.72)" : text.gradient.enabled ? `linear-gradient(90deg, ${text.gradient.from}, ${text.gradient.to})` : "transparent",
-                          border: text.frame.enabled ? `${editorFrameWidth}px ${text.frame.style === "stamp" ? "dashed" : "solid"} ${text.frame.color}` : undefined,
-                          borderRadius: text.frame.enabled ? text.frame.style === "seal" ? "999px" : `${text.frame.radius * currentPreviewScale}px` : text.background.enabled ? `${text.background.radius * currentPreviewScale}px` : undefined,
-                          clipPath: text.frame.enabled && text.frame.style === "label" ? "polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%)" : text.frame.enabled && text.frame.style === "ribbon" ? "polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%)" : undefined,
+                          background: isEditingText ? text.background.enabled ? text.background.color : text.frame.enabled ? "rgba(255, 255, 255, 0.72)" : text.gradient.enabled ? `linear-gradient(90deg, ${text.gradient.from}, ${text.gradient.to})` : "transparent" : "transparent",
+                          border: isEditingText && text.frame.enabled ? `${editorFrameWidth}px ${text.frame.style === "stamp" ? "dashed" : "solid"} ${text.frame.color}` : undefined,
+                          borderRadius: isEditingText ? text.frame.enabled ? text.frame.style === "seal" ? "999px" : `${text.frame.radius * currentPreviewScale}px` : text.background.enabled ? `${text.background.radius * currentPreviewScale}px` : undefined : undefined,
+                          clipPath: isEditingText && text.frame.enabled && text.frame.style === "label" ? "polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%)" : isEditingText && text.frame.enabled && text.frame.style === "ribbon" ? "polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%)" : undefined,
                           padding: `${editorPadding}px`,
-                          backgroundClip: text.gradient.enabled && !text.background.enabled ? "text" : undefined,
-                          WebkitBackgroundClip: text.gradient.enabled && !text.background.enabled ? "text" : undefined,
-                          WebkitTextFillColor: text.gradient.enabled && !text.background.enabled ? "transparent" : undefined,
-                          textShadow: editorShadow,
-                          WebkitTextStroke: editorStrokeWidth ? `${editorStrokeWidth}px ${text.outline.color}` : "0 transparent",
-                          filter: canShowEditorEffects && text.glow.enabled ? `drop-shadow(0 0 ${Math.min(4, Math.max(1, text.glow.blur * currentPreviewScale))}px ${text.glow.color})` : undefined,
-                          boxShadow: editorBoxShadows
+                          backgroundClip: isEditingText && text.gradient.enabled && !text.background.enabled ? "text" : undefined,
+                          WebkitBackgroundClip: isEditingText && text.gradient.enabled && !text.background.enabled ? "text" : undefined,
+                          WebkitTextFillColor: isEditingText && text.gradient.enabled && !text.background.enabled ? "transparent" : undefined,
+                          textShadow: isEditingText ? editorShadow : "none",
+                          WebkitTextStroke: isEditingText && editorStrokeWidth ? `${editorStrokeWidth}px ${text.outline.color}` : "0 transparent",
+                          filter: isEditingText && canShowEditorEffects && text.glow.enabled ? `drop-shadow(0 0 ${Math.min(4, Math.max(1, text.glow.blur * currentPreviewScale))}px ${text.glow.color})` : undefined,
+                          boxShadow: isEditingText ? editorBoxShadows : undefined
                         }}
-                        onPointerDown={(event) => editingTextId === text.id ? undefined : handleTextPointerDown(text, event)}
+                        onPointerDown={(event) => isEditingText ? undefined : handleTextPointerDown(text, event)}
                         onPointerMove={handleTextPointerMove}
                         onPointerUp={handleTextPointerUp}
                         onPointerCancel={() => setTextDrag(null)}
@@ -4009,8 +4010,8 @@ export const App = () => {
                         }}
                       >
                         <span
-                          className="text-object-content"
-                          contentEditable={editingTextId === text.id}
+                          className={isEditingText ? "text-object-content is-editing" : "text-object-content is-canvas-rendered"}
+                          contentEditable={isEditingText}
                           suppressContentEditableWarning
                           onBlur={(event) => {
                             const nextTexts = cleanupPlaceholderTexts(updateTextObject(textObjects, text.id, { content: event.currentTarget.textContent ?? "" }), text.id);
@@ -4023,9 +4024,9 @@ export const App = () => {
                             setEditingTextId(null);
                           }}
                         >
-                          {editingTextId === text.id ? text.content : getPrintableText(text)}
+                          {isEditingText ? text.content : getPrintableText(text)}
                         </span>
-                        {selectedTextId === text.id && editingTextId !== text.id && (
+                        {selectedTextId === text.id && !isEditingText && (
                           <button
                             className="text-resize-handle"
                             type="button"

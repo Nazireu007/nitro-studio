@@ -762,8 +762,8 @@ button:disabled {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr) minmax(260px, 300px);
-  gap: 14px;
+  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(230px, 280px);
+  gap: 10px;
   margin-top: 8px;
   overflow: hidden;
   min-height: 0;
@@ -1666,7 +1666,7 @@ button:disabled {
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr);
   min-width: 0;
-  min-height: 0;
+  min-height: 560px;
   border: 1px solid rgba(24, 32, 43, 0.1);
   border-radius: 8px;
   background:
@@ -1962,7 +1962,7 @@ button:disabled {
 .canvas-wrap {
   grid-row: 4;
   display: grid;
-  min-height: 0;
+  min-height: 420px;
   place-items: center;
   padding: 12px;
   overflow: auto;
@@ -2033,6 +2033,10 @@ button:disabled {
 .text-object-content {
   display: block;
   min-width: 100%;
+}
+
+.text-object-content.is-canvas-rendered {
+  opacity: 0;
 }
 
 .text-object-content[contenteditable="true"] {
