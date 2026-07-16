@@ -1791,6 +1791,33 @@ button:disabled {
   max-width: 100%;
 }
 
+.stage-text-button.is-active {
+  color: #ffffff;
+  border-color: #0f766e;
+  background: #0f766e;
+}
+
+.paper-zoom-control {
+  display: inline-grid;
+  grid-template-columns: auto minmax(88px, 140px);
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid rgba(24, 32, 43, 0.12);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #344054;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.paper-zoom-control input {
+  width: 100%;
+  accent-color: #0f766e;
+}
+
 .stage-status {
   display: grid;
   min-width: 112px;
@@ -2815,8 +2842,15 @@ button:disabled {
 
   .stage-status,
   .stage-text-button,
+  .paper-zoom-control,
   .stage-actions .toggle {
     width: 100%;
+  }
+
+  .paper-zoom-control {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+    padding: 8px 10px;
   }
 
   .stage-text-toolbar {

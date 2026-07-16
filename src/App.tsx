@@ -579,6 +579,7 @@ export const App = () => {
   const [textObjects, setTextObjects] = useState<TextObject[]>(loadAutosavedTextObjects);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [isTextToolsOpen, setIsTextToolsOpen] = useState(false);
   const [textHistory, setTextHistory] = useState<TextObject[][]>([]);
   const [textRedoHistory, setTextRedoHistory] = useState<TextObject[][]>([]);
   const [textDrag, setTextDrag] = useState<{
@@ -613,6 +614,7 @@ export const App = () => {
   const imagesRef = useRef<ProjectImage[]>([]);
   const [previewBounds, setPreviewBounds] = useState({ width: 920, height: 680 });
   const [currentPreviewScale, setCurrentPreviewScale] = useState(1);
+  const [paperZoomPercent, setPaperZoomPercent] = useState(100);
   const sourceImage = useMemo(
     () => images.find((image) => image.id === selectedImageId) ?? images[0] ?? null,
     [images, selectedImageId]
@@ -631,6 +633,7 @@ export const App = () => {
     if (selectedTextId && !selectedText) {
       setSelectedTextId(null);
       setEditingTextId(null);
+      setIsTextToolsOpen(false);
     }
   }, [selectedText, selectedTextId]);
 
@@ -1339,6 +1342,7 @@ export const App = () => {
       updateTextObjects((current) => cleanupPlaceholderTexts(current, existingPlaceholder.id));
       setSelectedTextId(existingPlaceholder.id);
       setEditingTextId(null);
+      setIsTextToolsOpen(true);
       setMessage("Texto em branco selecionado. Edite pela barra sem criar cópias na folha.");
       return;
     }
@@ -1348,7 +1352,27 @@ export const App = () => {
     updateTextObjects(nextTexts);
     setSelectedTextId(created.id);
     setEditingTextId(null);
+    setIsTextToolsOpen(true);
     setMessage("Texto adicionado. Edite pela barra ou dê dois cliques na folha para editar direto.");
+  };
+
+  const toggleTextTools = () => {
+    if (isTextToolsOpen && selectedText) {
+      setIsTextToolsOpen(false);
+      setMessage("Ferramentas de texto recolhidas.");
+      return;
+    }
+
+    const textToSelect = selectedText ?? textObjects[textObjects.length - 1] ?? null;
+    if (textToSelect) {
+      setSelectedTextId(textToSelect.id);
+      setEditingTextId(null);
+      setIsTextToolsOpen(true);
+      setMessage("Ferramentas de texto abertas.");
+      return;
+    }
+
+    addTextToSheet();
   };
 
   const createLetteringFromPreset = (presetId: TextEffectPreset, content = letteringDraft) => {
@@ -1392,6 +1416,7 @@ export const App = () => {
     updateTextObjects((current) => deleteTextObject(current, selectedText.id));
     setSelectedTextId(null);
     setEditingTextId(null);
+    setIsTextToolsOpen(false);
     setMessage("Texto excluído.");
   };
 
@@ -2331,16 +2356,17 @@ export const App = () => {
 
   useEffect(() => {
     if ((!sourceImage && !textObjects.length) || !plan || !previewCanvasRef.current) return;
-    const scale = Math.min(
+    const autoScale = Math.min(
       1,
       Math.max(0.08, (previewBounds.width - 42) / plan.sheetPx.width),
       Math.max(0.08, (previewBounds.height - 42) / plan.sheetPx.height)
     );
+    const scale = Number(clampNumber(autoScale * (paperZoomPercent / 100), 0.04, 2.5).toFixed(4));
     setCurrentPreviewScale(scale);
     void renderPrintCanvas(previewCanvasRef.current, plan, getRenderOptions(scale, false)).catch((error) =>
       setMessage(error instanceof Error ? error.message : "Erro no preview.")
     );
-  }, [montageImages, plan, previewBounds, settings, sourceImage, textObjects]);
+  }, [montageImages, paperZoomPercent, plan, previewBounds, settings, sourceImage, textObjects]);
 
   useEffect(() => {
     if (!isPrintPreviewOpen || (!sourceImage && !textObjects.length) || !plan || !printPreviewCanvasRef.current) return;
@@ -3656,10 +3682,25 @@ export const App = () => {
               ))}
             </div>
             <div className="stage-actions">
-              <button className="secondary-button stage-text-button" onClick={addTextToSheet}>
+              <button
+                className={isTextToolsOpen && selectedText ? "secondary-button stage-text-button is-active" : "secondary-button stage-text-button"}
+                onClick={toggleTextTools}
+              >
                 <FileText size={17} />
-                Adicionar texto
+                {isTextToolsOpen && selectedText ? "Ocultar texto" : "Ferramentas de texto"}
               </button>
+              <label className="paper-zoom-control" title="Zoom visual do papel na tela">
+                <span>Zoom {paperZoomPercent}%</span>
+                <input
+                  type="range"
+                  min="25"
+                  max="250"
+                  step="5"
+                  value={paperZoomPercent}
+                  onChange={(event) => setPaperZoomPercent(Number(event.target.value))}
+                  aria-label="Zoom do papel na tela"
+                />
+              </label>
               {montageImages.length > 1 && (
                 <div className="stage-status montage">
                   <strong>{montageImages.length}</strong>
@@ -3689,7 +3730,7 @@ export const App = () => {
               Arraste a arte, selecione textos ou puxe as alças para ajustar.
             </div>
           )}
-          {selectedText && (
+          {isTextToolsOpen && selectedText && (
             <div className="stage-text-toolbar" aria-label="Barra simples do texto">
               <input
                 value={selectedText.content}
@@ -3721,6 +3762,7 @@ export const App = () => {
               <select value={selectedText.effectPreset} onChange={(event) => applyPresetToSelectedText(event.target.value as TextEffectPreset)} aria-label="Efeitos">
                 {letteringPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
               </select>
+              <button onClick={addTextToSheet}>Novo texto</button>
               <button onClick={fitSelectedTextToArea}>Encaixar</button>
               <button onClick={duplicateSelectedText}>Duplicar</button>
               <button className="danger-inline" onClick={deleteSelectedText}>Excluir</button>
