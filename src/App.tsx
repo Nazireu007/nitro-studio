@@ -542,6 +542,32 @@ const sheetRotationLabels: Record<Settings["sheetRotationDeg"], string> = {
   180: "Retrato invertido",
   270: "Paisagem invertida"
 };
+const textColorPalette = [
+  "#111827",
+  "#ffffff",
+  "#dc2626",
+  "#f97316",
+  "#facc15",
+  "#22c55e",
+  "#0f766e",
+  "#38bdf8",
+  "#2563eb",
+  "#7c3aed",
+  "#ec4899",
+  "#92400e"
+];
+
+type TextStyleDraft = {
+  fontFamily: string;
+  color: string;
+  fontSize: number;
+  bold: boolean;
+  italic: boolean;
+  curveMode: TextCurveMode;
+  effectPreset: TextEffectPreset;
+};
+
+type TextStyleDirty = Partial<Record<keyof TextStyleDraft, boolean>>;
 
 export const App = () => {
   const [images, setImages] = useState<ProjectImage[]>([]);
@@ -580,6 +606,8 @@ export const App = () => {
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [isTextToolsOpen, setIsTextToolsOpen] = useState(false);
+  const [textStyleDraft, setTextStyleDraft] = useState<TextStyleDraft | null>(null);
+  const [textStyleDirty, setTextStyleDirty] = useState<TextStyleDirty>({});
   const [textHistory, setTextHistory] = useState<TextObject[][]>([]);
   const [textRedoHistory, setTextRedoHistory] = useState<TextObject[][]>([]);
   const [textDrag, setTextDrag] = useState<{
@@ -612,6 +640,9 @@ export const App = () => {
   const fontFileInputRef = useRef<HTMLInputElement | null>(null);
   const fontManagerRef = useRef(new FontManager());
   const imagesRef = useRef<ProjectImage[]>([]);
+  const settingsRef = useRef(settings);
+  const textObjectsRef = useRef(textObjects);
+  const selectedTextIdRef = useRef(selectedTextId);
   const [previewBounds, setPreviewBounds] = useState({ width: 920, height: 680 });
   const [currentPreviewScale, setCurrentPreviewScale] = useState(1);
   const [paperZoomPercent, setPaperZoomPercent] = useState(100);
@@ -628,6 +659,39 @@ export const App = () => {
     () => textObjects.find((item) => item.id === selectedTextId) ?? null,
     [selectedTextId, textObjects]
   );
+  const hasPendingTextStyle = Object.values(textStyleDirty).some(Boolean);
+  const activeTextStyle = textStyleDraft ?? (selectedText
+    ? {
+        fontFamily: selectedText.fontFamily,
+        color: selectedText.color,
+        fontSize: selectedText.fontSize,
+        bold: selectedText.bold,
+        italic: selectedText.italic,
+        curveMode: selectedText.curve.mode,
+        effectPreset: selectedText.effectPreset
+      }
+    : null);
+
+  const syncTextStyleDraft = (text: TextObject | null) => {
+    setTextStyleDraft(text
+      ? {
+          fontFamily: text.fontFamily,
+          color: text.color,
+          fontSize: text.fontSize,
+          bold: text.bold,
+          italic: text.italic,
+          curveMode: text.curve.mode,
+          effectPreset: text.effectPreset
+        }
+      : null
+    );
+    setTextStyleDirty({});
+  };
+
+  const updateTextStyleDraft = <Key extends keyof TextStyleDraft>(key: Key, value: TextStyleDraft[Key]) => {
+    setTextStyleDraft((current) => current ? { ...current, [key]: value } : current);
+    setTextStyleDirty((current) => ({ ...current, [key]: true }));
+  };
 
   useEffect(() => {
     if (selectedTextId && !selectedText) {
@@ -636,6 +700,10 @@ export const App = () => {
       setIsTextToolsOpen(false);
     }
   }, [selectedText, selectedTextId]);
+
+  useEffect(() => {
+    syncTextStyleDraft(selectedText);
+  }, [selectedText?.id]);
 
   useEffect(() => {
     setCheckedImageIds((current) => {
@@ -833,20 +901,28 @@ export const App = () => {
     });
   };
 
+  const persistWorkspace = (
+    nextSettings = settingsRef.current,
+    nextTextObjects = textObjectsRef.current,
+    nextSelectedTextId = selectedTextIdRef.current
+  ) => {
+    const savedAt = Date.now();
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(nextSettings));
+    window.localStorage.setItem(
+      WORKSPACE_AUTOSAVE_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        savedAt,
+        settings: nextSettings,
+        textObjects: cleanupPlaceholderTexts(nextTextObjects, nextSelectedTextId)
+      })
+    );
+    setLastAutosaveAt(savedAt);
+  };
+
   const saveWorkspaceNow = (showMessage = true) => {
     try {
-      const savedAt = Date.now();
-      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      window.localStorage.setItem(
-        WORKSPACE_AUTOSAVE_STORAGE_KEY,
-        JSON.stringify({
-          version: 1,
-          savedAt,
-          settings,
-          textObjects: cleanupPlaceholderTexts(textObjects, selectedTextId)
-        })
-      );
-      setLastAutosaveAt(savedAt);
+      persistWorkspace(settings, textObjects, selectedTextId);
       if (showMessage) setMessage("Workspace salvo automaticamente neste navegador.");
     } catch {
       if (showMessage) setMessage("Não consegui salvar no navegador. Verifique espaço ou permissões.");
@@ -1405,18 +1481,28 @@ export const App = () => {
   const updateSelectedTextContent = (content: string) => {
     if (!selectedText) return;
     setEditingTextId(null);
-    updateTextObjects(
-      (current) => cleanupPlaceholderTexts(updateTextObject(current, selectedText.id, { content }), selectedText.id),
-      { trackHistory: false }
-    );
+    const nextTexts = cleanupPlaceholderTexts(updateTextObject(textObjects, selectedText.id, { content }), selectedText.id);
+    updateTextObjects(nextTexts, { trackHistory: false });
+    try {
+      persistWorkspace(settings, nextTexts, selectedText.id);
+    } catch {
+      // Autosave will retry on the next scheduled pass.
+    }
   };
 
   const deleteSelectedText = () => {
     if (!selectedText) return;
-    updateTextObjects((current) => deleteTextObject(current, selectedText.id));
+    const nextTexts = deleteTextObject(textObjects, selectedText.id);
+    updateTextObjects(nextTexts);
+    try {
+      persistWorkspace(settings, nextTexts, null);
+    } catch {
+      setMessage("Texto excluído, mas não consegui atualizar o autosave local.");
+    }
     setSelectedTextId(null);
     setEditingTextId(null);
     setIsTextToolsOpen(false);
+    syncTextStyleDraft(null);
     setMessage("Texto excluído.");
   };
 
@@ -1447,10 +1533,38 @@ export const App = () => {
     setMessage("Efeito aplicado como propriedades editáveis do texto.");
   };
 
+  const applyTextStyleDraft = () => {
+    if (!selectedText || !textStyleDraft) return;
+
+    const nextText = textStyleDirty.effectPreset
+      ? applyLetteringPreset(selectedText, textStyleDraft.effectPreset)
+      : selectedText;
+    const patch: Partial<TextObject> = {};
+
+    if (textStyleDirty.fontFamily) patch.fontFamily = textStyleDraft.fontFamily;
+    if (textStyleDirty.color) patch.color = textStyleDraft.color;
+    if (textStyleDirty.fontSize) patch.fontSize = textStyleDraft.fontSize;
+    if (textStyleDirty.bold) patch.bold = textStyleDraft.bold;
+    if (textStyleDirty.italic) patch.italic = textStyleDraft.italic;
+    if (textStyleDirty.curveMode) {
+      patch.curve = {
+        ...nextText.curve,
+        mode: textStyleDraft.curveMode,
+        intensity: textStyleDraft.curveMode === "straight" ? 0 : Math.max(nextText.curve.intensity, 18)
+      };
+    }
+
+    const styledText = { ...nextText, ...patch };
+    updateTextObjects((current) => current.map((item) => (item.id === selectedText.id ? styledText : item)));
+    syncTextStyleDraft(styledText);
+    setMessage("Estilo aplicado ao texto selecionado.");
+  };
+
   const selectFontForText = (font: FontRecord) => {
     if (!selectedText) return;
-    updateSelectedText({ fontFamily: font.family });
+    updateTextStyleDraft("fontFamily", font.family);
     setFonts((current) => current.map((item) => (item.id === font.id ? { ...item, lastUsedAt: Date.now() } : item)));
+    setMessage("Fonte escolhida. Clique em Aplicar estilo para usar no texto.");
   };
 
   const toggleFontFavorite = (font: FontRecord) => {
@@ -2424,18 +2538,7 @@ export const App = () => {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       try {
-        const savedAt = Date.now();
-        window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-        window.localStorage.setItem(
-          WORKSPACE_AUTOSAVE_STORAGE_KEY,
-          JSON.stringify({
-            version: 1,
-            savedAt,
-            settings,
-            textObjects: cleanupPlaceholderTexts(textObjects, selectedTextId)
-          })
-        );
-        setLastAutosaveAt(savedAt);
+        persistWorkspace(settings, textObjects, selectedTextId);
       } catch {
         // Autosave is a convenience layer; failure should never block production.
       }
@@ -2480,6 +2583,30 @@ export const App = () => {
   useEffect(() => {
     imagesRef.current = images;
   }, [images]);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  useEffect(() => {
+    textObjectsRef.current = textObjects;
+  }, [textObjects]);
+
+  useEffect(() => {
+    selectedTextIdRef.current = selectedTextId;
+  }, [selectedTextId]);
+
+  useEffect(() => {
+    const saveBeforeUnload = () => {
+      try {
+        persistWorkspace();
+      } catch {
+        // Browser shutdown should not be blocked by local persistence.
+      }
+    };
+    window.addEventListener("beforeunload", saveBeforeUnload);
+    return () => window.removeEventListener("beforeunload", saveBeforeUnload);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -3730,14 +3857,14 @@ export const App = () => {
               Arraste a arte, selecione textos ou puxe as alças para ajustar.
             </div>
           )}
-          {isTextToolsOpen && selectedText && (
+          {isTextToolsOpen && selectedText && activeTextStyle && (
             <div className="stage-text-toolbar" aria-label="Barra simples do texto">
               <input
                 value={selectedText.content}
                 onChange={(event) => updateSelectedTextContent(event.target.value)}
                 aria-label="Editar texto"
               />
-              <select value={selectedText.fontFamily} onChange={(event) => updateSelectedText({ fontFamily: event.target.value })} aria-label="Fonte">
+              <select value={activeTextStyle.fontFamily} onChange={(event) => updateTextStyleDraft("fontFamily", event.target.value)} aria-label="Fonte">
                 {fonts.map((font) => <option key={font.id} value={font.family}>{font.name}</option>)}
               </select>
               <input
@@ -3745,23 +3872,38 @@ export const App = () => {
                 type="number"
                 min="8"
                 max="420"
-                value={selectedText.fontSize}
-                onChange={(event) => updateSelectedText({ fontSize: Number(event.target.value) })}
+                value={activeTextStyle.fontSize}
+                onChange={(event) => updateTextStyleDraft("fontSize", Number(event.target.value))}
                 aria-label="Tamanho"
               />
-              <input type="color" value={selectedText.color} onChange={(event) => updateSelectedText({ color: event.target.value })} aria-label="Cor" />
-              <button className={selectedText.bold ? "is-active" : ""} onClick={() => updateSelectedText({ bold: !selectedText.bold })}>B</button>
-              <button className={selectedText.italic ? "is-active" : ""} onClick={() => updateSelectedText({ italic: !selectedText.italic })}>I</button>
-              <select value={selectedText.curve.mode} onChange={(event) => updateSelectedText({ curve: { ...selectedText.curve, mode: event.target.value as TextCurveMode, intensity: event.target.value === "straight" ? 0 : Math.max(selectedText.curve.intensity, 18) } })} aria-label="Curvar">
+              <input type="color" value={activeTextStyle.color} onChange={(event) => updateTextStyleDraft("color", event.target.value)} aria-label="Cor" />
+              <button className={activeTextStyle.bold ? "is-active" : ""} onClick={() => updateTextStyleDraft("bold", !activeTextStyle.bold)}>B</button>
+              <button className={activeTextStyle.italic ? "is-active" : ""} onClick={() => updateTextStyleDraft("italic", !activeTextStyle.italic)}>I</button>
+              <select value={activeTextStyle.curveMode} onChange={(event) => updateTextStyleDraft("curveMode", event.target.value as TextCurveMode)} aria-label="Curvar">
                 <option value="straight">Reto</option>
                 <option value="arc-up">Arco ↑</option>
                 <option value="arc-down">Arco ↓</option>
                 <option value="wave">Onda</option>
                 <option value="circle">Círculo</option>
               </select>
-              <select value={selectedText.effectPreset} onChange={(event) => applyPresetToSelectedText(event.target.value as TextEffectPreset)} aria-label="Efeitos">
+              <select value={activeTextStyle.effectPreset} onChange={(event) => updateTextStyleDraft("effectPreset", event.target.value as TextEffectPreset)} aria-label="Efeitos">
                 {letteringPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
               </select>
+              <div className="text-color-palette" aria-label="Tabela de cores para letras">
+                {textColorPalette.map((color) => (
+                  <button
+                    className={activeTextStyle.color.toLowerCase() === color ? "is-selected" : ""}
+                    key={color}
+                    onClick={() => updateTextStyleDraft("color", color)}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                    type="button"
+                  />
+                ))}
+              </div>
+              <button className={hasPendingTextStyle ? "apply-style-button is-ready" : "apply-style-button"} onClick={applyTextStyleDraft} disabled={!hasPendingTextStyle}>
+                Aplicar estilo
+              </button>
               <button onClick={addTextToSheet}>Novo texto</button>
               <button onClick={fitSelectedTextToArea}>Encaixar</button>
               <button onClick={duplicateSelectedText}>Duplicar</button>
@@ -3871,9 +4013,13 @@ export const App = () => {
                           contentEditable={editingTextId === text.id}
                           suppressContentEditableWarning
                           onBlur={(event) => {
-                            updateTextObjects((current) =>
-                              cleanupPlaceholderTexts(updateTextObject(current, text.id, { content: event.currentTarget.textContent ?? "" }), text.id)
-                            );
+                            const nextTexts = cleanupPlaceholderTexts(updateTextObject(textObjects, text.id, { content: event.currentTarget.textContent ?? "" }), text.id);
+                            updateTextObjects(nextTexts);
+                            try {
+                              persistWorkspace(settings, nextTexts, text.id);
+                            } catch {
+                              // Autosave will retry on the next scheduled pass.
+                            }
                             setEditingTextId(null);
                           }}
                         >
