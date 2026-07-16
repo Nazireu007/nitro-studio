@@ -1382,7 +1382,7 @@ export const App = () => {
     if (!selectedText) return;
     setEditingTextId(null);
     updateTextObjects(
-      (current) => cleanupPlaceholderTexts(updateTextObject(current, selectedText.id, { content: content || TEXT_PLACEHOLDER }), selectedText.id),
+      (current) => cleanupPlaceholderTexts(updateTextObject(current, selectedText.id, { content }), selectedText.id),
       { trackHistory: false }
     );
   };
@@ -3814,7 +3814,7 @@ export const App = () => {
                           suppressContentEditableWarning
                           onBlur={(event) => {
                             updateTextObjects((current) =>
-                              cleanupPlaceholderTexts(updateTextObject(current, text.id, { content: event.currentTarget.textContent || TEXT_PLACEHOLDER }), text.id)
+                              cleanupPlaceholderTexts(updateTextObject(current, text.id, { content: event.currentTarget.textContent ?? "" }), text.id)
                             );
                             setEditingTextId(null);
                           }}
