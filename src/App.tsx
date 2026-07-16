@@ -92,6 +92,7 @@ type Settings = {
   technicalLabel: boolean;
   exportFormat: "png" | "pdf";
   mirror: boolean;
+  printerConfigured: boolean;
   printerModel: string;
   printProduct: string;
   paperType: string;
@@ -135,7 +136,8 @@ const initialSettings: Settings = {
   technicalLabel: true,
   exportFormat: "pdf",
   mirror: true,
-  printerModel: "Epson L3250",
+  printerConfigured: false,
+  printerModel: "",
   printProduct: "Camisa branca",
   paperType: "Papel sublimático",
   printQuality: "Alta / melhor foto",
@@ -148,6 +150,7 @@ const SETTINGS_STORAGE_KEY = "nitro-studio-settings";
 const RECENT_PROJECTS_STORAGE_KEY = "nitro-studio-recent-projects";
 const PRODUCT_USAGE_STORAGE_KEY = "nitro-studio-product-usage";
 const FONT_PREFS_STORAGE_KEY = "nitro-studio-font-preferences";
+const WORKSPACE_AUTOSAVE_STORAGE_KEY = "nitro-studio-workspace-autosave";
 
 const normalizeSettings = (settings: Partial<Settings>): Settings => {
   const next = {
@@ -164,7 +167,8 @@ const normalizeSettings = (settings: Partial<Settings>): Settings => {
     lockMeasureRatio: next.lockMeasureRatio !== false,
     printOrientation: ["auto", "portrait", "landscape"].includes(next.printOrientation) ? next.printOrientation : "auto",
     driverScale: Number.isFinite(next.driverScale) ? next.driverScale : 100,
-    borderless: Boolean(next.borderless)
+    borderless: Boolean(next.borderless),
+    printerConfigured: Boolean(next.printerConfigured && next.printerModel)
   };
 };
 
@@ -203,6 +207,19 @@ const loadProductUsage = (): ProductUsage => {
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
+  }
+};
+
+const loadAutosavedTextObjects = (): TextObject[] => {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const savedWorkspace = window.localStorage.getItem(WORKSPACE_AUTOSAVE_STORAGE_KEY);
+    if (!savedWorkspace) return [];
+    const parsed = JSON.parse(savedWorkspace) as { textObjects?: TextObject[] };
+    return Array.isArray(parsed.textObjects) ? parsed.textObjects : [];
+  } catch {
+    return [];
   }
 };
 
@@ -528,7 +545,7 @@ export const App = () => {
     displayScale: number;
     pageFlipped: boolean;
   } | null>(null);
-  const [textObjects, setTextObjects] = useState<TextObject[]>([]);
+  const [textObjects, setTextObjects] = useState<TextObject[]>(loadAutosavedTextObjects);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [textHistory, setTextHistory] = useState<TextObject[][]>([]);
@@ -549,6 +566,7 @@ export const App = () => {
   const [fonts, setFonts] = useState<FontRecord[]>([]);
   const [fontSearch, setFontSearch] = useState("");
   const [fontCategory, setFontCategory] = useState<string>("Todas");
+  const [lastAutosaveAt, setLastAutosaveAt] = useState<number | null>(null);
   const [pendingCrop, setPendingCrop] = useState<CropArea | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
@@ -600,6 +618,9 @@ export const App = () => {
     return rankedProducts.filter((entry) => entry.count > 0).slice(0, 3);
   }, [productUsage]);
   const favoriteProduct = mostUsedProducts[0]?.item ?? destinationPresets.find((item) => item.id === settings.destinationId) ?? destinationPresets[0];
+  const autosaveLabel = lastAutosaveAt
+    ? new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(lastAutosaveAt)
+    : "Ativo";
   const visibleCrop = pendingCrop ?? {
     top: settings.cropTop,
     right: settings.cropRight,
@@ -741,6 +762,26 @@ export const App = () => {
       setTextRedoHistory([]);
       return typeof next === "function" ? next(current) : next;
     });
+  };
+
+  const saveWorkspaceNow = (showMessage = true) => {
+    try {
+      const savedAt = Date.now();
+      window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      window.localStorage.setItem(
+        WORKSPACE_AUTOSAVE_STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          savedAt,
+          settings,
+          textObjects
+        })
+      );
+      setLastAutosaveAt(savedAt);
+      if (showMessage) setMessage("Workspace salvo automaticamente neste navegador.");
+    } catch {
+      if (showMessage) setMessage("Não consegui salvar no navegador. Verifique espaço ou permissões.");
+    }
   };
 
   const undo = () => {
@@ -1693,7 +1734,7 @@ export const App = () => {
   </head>
   <body>
     <img src="${imageUrl}" alt="Arte preparada pelo Nitro Studio" />
-    <div class="note">Nitro Studio · ${settings.printerModel} · ${settings.printQuality} · ${orientation} · ${sheetRotationLabels[settings.sheetRotationDeg]}</div>
+    <div class="note">Nitro Studio · ${settings.printerConfigured ? settings.printerModel : "Impressora não selecionada"} · ${settings.printQuality} · ${orientation} · ${sheetRotationLabels[settings.sheetRotationDeg]}</div>
     <script>
       window.addEventListener("load", () => {
         window.focus();
@@ -2018,7 +2059,7 @@ export const App = () => {
     const scale = `${settings.driverScale}% no driver`;
 
     return [
-      { label: "Impressora", value: settings.printerModel },
+      { label: "Impressora", value: settings.printerConfigured ? settings.printerModel : "Não selecionada" },
       { label: "Produto", value: settings.printProduct },
       { label: "Sem bordas", value: borderless },
       { label: "Qualidade", value: settings.printQuality },
@@ -2037,6 +2078,7 @@ export const App = () => {
     settings.printProduct,
     settings.printQuality,
     settings.printOrientation,
+    settings.printerConfigured,
     settings.printerModel,
     settings.sheetRotationDeg,
     sheet.heightMm,
@@ -2144,11 +2186,22 @@ export const App = () => {
 
   useEffect(() => {
     try {
+      const savedAt = Date.now();
       window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      window.localStorage.setItem(
+        WORKSPACE_AUTOSAVE_STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          savedAt,
+          settings,
+          textObjects
+        })
+      );
+      setLastAutosaveAt(savedAt);
     } catch {
       // Autosave is a convenience layer; failure should never block production.
     }
-  }, [settings]);
+  }, [settings, textObjects]);
 
   useEffect(() => {
     try {
@@ -2243,9 +2296,9 @@ export const App = () => {
             </div>
             <div className="dashboard-printer-card">
               <Printer size={24} />
-              <span>Impressora selecionada</span>
-              <strong>{settings.printerModel}</strong>
-              <small>{settings.printQuality} · {settings.paperType}</small>
+              <span>{settings.printerConfigured ? "Impressora selecionada" : "Impressora"}</span>
+              <strong>{settings.printerConfigured ? settings.printerModel : "Não selecionada"}</strong>
+              <small>{settings.printerConfigured ? `${settings.printQuality} · ${settings.paperType}` : "Configure no Assistente de Impressão antes de imprimir."}</small>
             </div>
           </div>
 
@@ -2376,10 +2429,11 @@ export const App = () => {
             <Target size={18} />
             {currentMission?.title ?? "Missão do Dia"}
           </button>
-          <span className="autosave-pill">
+          <button className="autosave-pill" type="button" onClick={() => saveWorkspaceNow(true)} title="Salvar workspace local agora">
             <Save size={15} />
-            Autosave
-          </span>
+            <span>Autosave</span>
+            <small>{autosaveLabel}</small>
+          </button>
           <button className="secondary-button" onClick={arrangeArtwork}>
             <Sparkles size={18} />
             Arrumar Minha Arte
@@ -3645,7 +3699,11 @@ export const App = () => {
                   </div>
                   <label className="field">
                     <span>Impressora</span>
-                    <select value={settings.printerModel} onChange={(event) => updateSettings({ printerModel: event.target.value })}>
+                    <select
+                      value={settings.printerConfigured ? settings.printerModel : ""}
+                      onChange={(event) => updateSettings({ printerModel: event.target.value, printerConfigured: Boolean(event.target.value) })}
+                    >
+                      <option value="">Selecionar impressora</option>
                       <option value="Epson L3250">Epson L3250</option>
                       <option value="Epson L4260">Epson L4260</option>
                       <option value="Epson L8050">Epson L8050</option>
