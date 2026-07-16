@@ -16,7 +16,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 button,
@@ -447,9 +449,9 @@ button:disabled {
 .app-shell {
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr);
-  height: 100vh;
+  min-height: 100vh;
   padding: 12px;
-  overflow: hidden;
+  overflow: visible;
   background:
     linear-gradient(120deg, rgba(15, 118, 110, 0.12), transparent 34%),
     linear-gradient(300deg, rgba(244, 63, 94, 0.1), transparent 35%),
@@ -765,7 +767,7 @@ button:disabled {
   grid-template-columns: minmax(230px, 280px) minmax(0, 1fr) minmax(230px, 280px);
   gap: 10px;
   margin-top: 8px;
-  overflow: hidden;
+  overflow: visible;
   min-height: 0;
   align-items: stretch;
 }
