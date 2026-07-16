@@ -159,6 +159,7 @@ export const applyLetteringPreset = (text: TextObject, presetId: TextEffectPrese
     fontFamily: "Arial",
     color: "#111827",
     bold: true,
-    outline: { enabled: true, color: "#ffffff", width: 7 }
+    outline: { enabled: true, color: "#ffffff", width: 7 },
+    shadow: { enabled: false, color: "rgba(15, 23, 42, 0.24)", blur: 0, offsetX: 0, offsetY: 0, long: false }
   };
 };

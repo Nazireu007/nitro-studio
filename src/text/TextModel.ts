@@ -96,11 +96,11 @@ export const createTextObject = (sheetWidth: number, sheetHeight: number): TextO
   rotation: 0,
   mirror: false,
   opacity: 1,
-  effectPreset: "outline-name",
+  effectPreset: "none",
   outline: {
-    enabled: true,
+    enabled: false,
     color: "#ffffff",
-    width: 6
+    width: 0
   },
   doubleOutline: {
     enabled: false,
@@ -108,11 +108,11 @@ export const createTextObject = (sheetWidth: number, sheetHeight: number): TextO
     width: 0
   },
   shadow: {
-    enabled: true,
+    enabled: false,
     color: "rgba(15, 23, 42, 0.34)",
-    blur: 8,
-    offsetX: 8,
-    offsetY: 8,
+    blur: 0,
+    offsetX: 0,
+    offsetY: 0,
     long: false
   },
   glow: {

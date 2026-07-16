@@ -3690,6 +3690,14 @@ export const App = () => {
                     const pageFlipped = settings.sheetRotationDeg === 180 || settings.sheetRotationDeg === 270;
                     const displayX = pageFlipped ? plan.sheetPx.width - text.x : text.x;
                     const displayY = pageFlipped ? plan.sheetPx.height - text.y : text.y;
+                    const editorFontSize = text.fontSize * currentPreviewScale;
+                    const canShowEditorEffects = editorFontSize >= 18;
+                    const editorStrokeWidth = canShowEditorEffects && text.outline.enabled
+                      ? Math.min(2.4, Math.max(0.75, text.outline.width * currentPreviewScale))
+                      : 0;
+                    const editorShadow = canShowEditorEffects && text.shadow.enabled
+                      ? `${Math.min(2, text.shadow.offsetX * currentPreviewScale)}px ${Math.min(2, text.shadow.offsetY * currentPreviewScale)}px ${Math.min(3, text.shadow.blur * currentPreviewScale)}px ${text.shadow.color}`
+                      : "none";
                     return (
                       <div
                         className={selectedTextId === text.id ? "text-object is-selected" : "text-object"}
@@ -3700,7 +3708,7 @@ export const App = () => {
                           width: `${text.width * currentPreviewScale}px`,
                           color: text.color,
                           fontFamily: text.fontFamily,
-                          fontSize: `${text.fontSize * currentPreviewScale}px`,
+                          fontSize: `${editorFontSize}px`,
                           fontWeight: text.bold ? 800 : 500,
                           fontStyle: text.italic ? "italic" : "normal",
                           textDecoration: text.underline ? "underline" : "none",
@@ -3715,10 +3723,10 @@ export const App = () => {
                           backgroundClip: text.gradient.enabled && !text.background.enabled ? "text" : undefined,
                           WebkitBackgroundClip: text.gradient.enabled && !text.background.enabled ? "text" : undefined,
                           WebkitTextFillColor: text.gradient.enabled && !text.background.enabled ? "transparent" : undefined,
-                          textShadow: text.shadow.enabled ? `${text.shadow.offsetX * currentPreviewScale}px ${text.shadow.offsetY * currentPreviewScale}px ${text.shadow.blur * currentPreviewScale}px ${text.shadow.color}` : "none",
-                          WebkitTextStroke: text.outline.enabled ? `${text.outline.width * currentPreviewScale}px ${text.outline.color}` : "0 transparent",
-                          filter: text.glow.enabled ? `drop-shadow(0 0 ${Math.max(2, text.glow.blur * currentPreviewScale)}px ${text.glow.color})` : undefined,
-                          boxShadow: text.doubleOutline.enabled ? `0 0 0 ${Math.max(1, text.doubleOutline.width * currentPreviewScale * 0.45)}px ${text.doubleOutline.color}` : undefined
+                          textShadow: editorShadow,
+                          WebkitTextStroke: editorStrokeWidth ? `${editorStrokeWidth}px ${text.outline.color}` : "0 transparent",
+                          filter: canShowEditorEffects && text.glow.enabled ? `drop-shadow(0 0 ${Math.min(4, Math.max(1, text.glow.blur * currentPreviewScale))}px ${text.glow.color})` : undefined,
+                          boxShadow: canShowEditorEffects && text.doubleOutline.enabled ? `0 0 0 ${Math.min(3, Math.max(1, text.doubleOutline.width * currentPreviewScale * 0.28))}px ${text.doubleOutline.color}` : undefined
                         }}
                         onPointerDown={(event) => editingTextId === text.id ? undefined : handleTextPointerDown(text, event)}
                         onPointerMove={handleTextPointerMove}
