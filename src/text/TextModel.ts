@@ -13,6 +13,8 @@ export type TextEffectPreset =
   | "outline-name"
   | "vibrant";
 
+export const TEXT_PLACEHOLDER = "Digite seu texto";
+
 export type TextObject = {
   id: string;
   content: string;
@@ -79,7 +81,7 @@ export type TextObject = {
 
 export const createTextObject = (sheetWidth: number, sheetHeight: number): TextObject => ({
   id: `text-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  content: "Digite seu texto",
+  content: TEXT_PLACEHOLDER,
   x: Math.round(sheetWidth * 0.5),
   y: Math.round(sheetHeight * 0.42),
   width: Math.round(sheetWidth * 0.52),

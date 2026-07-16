@@ -59,7 +59,7 @@ import {
   resizeTextObject,
   updateTextObject
 } from "./text/TextController";
-import { normalizeTextObject, TextCurveMode, TextEffectPreset, TextObject } from "./text/TextModel";
+import { normalizeTextObject, TEXT_PLACEHOLDER, TextCurveMode, TextEffectPreset, TextObject } from "./text/TextModel";
 import { clampTextToSheet, getPrintableText, hasWeakOutlineForPrint, isTextOutsideSheet } from "./text/TypographyService";
 
 type Settings = {
@@ -214,6 +214,30 @@ const loadProductUsage = (): ProductUsage => {
   }
 };
 
+const isUneditedPlaceholderText = (text: TextObject) => {
+  const content = text.content.replace(/\s+/g, " ").trim();
+  return content === TEXT_PLACEHOLDER;
+};
+
+const cleanupPlaceholderTexts = (items: TextObject[], keepId?: string | null) => {
+  const placeholders = items.filter(isUneditedPlaceholderText);
+  if (!placeholders.length) return items;
+
+  const realTexts = items.filter((item) => !isUneditedPlaceholderText(item));
+  const explicitPlaceholder = keepId ? placeholders.find((item) => item.id === keepId) : null;
+  if (realTexts.length) {
+    return explicitPlaceholder ? [...realTexts, explicitPlaceholder] : realTexts;
+  }
+
+  if (placeholders.length <= 1) return items;
+
+  const keepPlaceholder =
+    explicitPlaceholder ??
+    placeholders[placeholders.length - 1];
+
+  return items.filter((item) => !isUneditedPlaceholderText(item) || item.id === keepPlaceholder.id);
+};
+
 const loadAutosavedTextObjects = (): TextObject[] => {
   if (typeof window === "undefined") return [];
 
@@ -221,7 +245,9 @@ const loadAutosavedTextObjects = (): TextObject[] => {
     const savedWorkspace = window.localStorage.getItem(WORKSPACE_AUTOSAVE_STORAGE_KEY);
     if (!savedWorkspace) return [];
     const parsed = JSON.parse(savedWorkspace) as { textObjects?: TextObject[] };
-    return Array.isArray(parsed.textObjects) ? parsed.textObjects.map((text) => normalizeTextObject(text)) : [];
+    return Array.isArray(parsed.textObjects)
+      ? cleanupPlaceholderTexts(parsed.textObjects.map((text) => normalizeTextObject(text)))
+      : [];
   } catch {
     return [];
   }
@@ -1278,12 +1304,22 @@ export const App = () => {
   const addTextToSheet = () => {
     const sheetWidth = plan?.sheetPx.width ?? Math.round((sheet.widthMm / 25.4) * settings.dpi);
     const sheetHeight = plan?.sheetPx.height ?? Math.round((sheet.heightMm / 25.4) * settings.dpi);
+    const existingPlaceholder = [...textObjects].reverse().find(isUneditedPlaceholderText);
+
+    if (existingPlaceholder) {
+      updateTextObjects((current) => cleanupPlaceholderTexts(current, existingPlaceholder.id));
+      setSelectedTextId(existingPlaceholder.id);
+      setEditingTextId(null);
+      setMessage("Texto em branco selecionado. Edite pela barra sem criar cópias na folha.");
+      return;
+    }
+
     const nextTexts = addTextObject(textObjects, sheetWidth, sheetHeight);
     const created = nextTexts[nextTexts.length - 1];
     updateTextObjects(nextTexts);
     setSelectedTextId(created.id);
-    setEditingTextId(created.id);
-    setMessage("Texto adicionado. Dê dois cliques na folha para editar direto.");
+    setEditingTextId(null);
+    setMessage("Texto adicionado. Edite pela barra ou dê dois cliques na folha para editar direto.");
   };
 
   const createLetteringFromPreset = (presetId: TextEffectPreset, content = letteringDraft) => {
@@ -1311,6 +1347,14 @@ export const App = () => {
   const updateSelectedText = (patch: Partial<TextObject>) => {
     if (!selectedText) return;
     updateTextObjects((current) => updateTextObject(current, selectedText.id, patch));
+  };
+
+  const updateSelectedTextContent = (content: string) => {
+    if (!selectedText) return;
+    setEditingTextId(null);
+    updateTextObjects((current) =>
+      cleanupPlaceholderTexts(updateTextObject(current, selectedText.id, { content: content || TEXT_PLACEHOLDER }), selectedText.id)
+    );
   };
 
   const deleteSelectedText = () => {
@@ -2885,7 +2929,7 @@ export const App = () => {
               <div className="text-controls">
                 <label className="field">
                   <span>Editar texto</span>
-                  <textarea value={selectedText.content} rows={3} onChange={(event) => updateSelectedText({ content: event.target.value })} />
+                  <textarea value={selectedText.content} rows={3} onChange={(event) => updateSelectedTextContent(event.target.value)} />
                 </label>
                 <div className="text-row">
                   <label className="field">
@@ -3623,7 +3667,7 @@ export const App = () => {
             <div className="stage-text-toolbar" aria-label="Barra simples do texto">
               <input
                 value={selectedText.content}
-                onChange={(event) => updateSelectedText({ content: event.target.value })}
+                onChange={(event) => updateSelectedTextContent(event.target.value)}
                 aria-label="Editar texto"
               />
               <select value={selectedText.fontFamily} onChange={(event) => updateSelectedText({ fontFamily: event.target.value })} aria-label="Fonte">
@@ -3743,7 +3787,9 @@ export const App = () => {
                           contentEditable={editingTextId === text.id}
                           suppressContentEditableWarning
                           onBlur={(event) => {
-                            updateTextObjects((current) => updateTextObject(current, text.id, { content: event.currentTarget.textContent || "" }));
+                            updateTextObjects((current) =>
+                              cleanupPlaceholderTexts(updateTextObject(current, text.id, { content: event.currentTarget.textContent || TEXT_PLACEHOLDER }), text.id)
+                            );
                             setEditingTextId(null);
                           }}
                         >
