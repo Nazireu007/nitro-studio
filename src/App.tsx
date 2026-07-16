@@ -135,6 +135,8 @@ const initialSettings: Settings = {
 };
 
 const SETTINGS_STORAGE_KEY = "nitro-studio-settings";
+const RECENT_PROJECTS_STORAGE_KEY = "nitro-studio-recent-projects";
+const PRODUCT_USAGE_STORAGE_KEY = "nitro-studio-product-usage";
 
 const normalizeSettings = (settings: Partial<Settings>): Settings => {
   const next = {
@@ -164,6 +166,32 @@ const loadInitialSettings = (): Settings => {
     return normalizeSettings(JSON.parse(savedSettings) as Partial<Settings>);
   } catch {
     return initialSettings;
+  }
+};
+
+const loadRecentProjects = (): RecentProject[] => {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const savedProjects = window.localStorage.getItem(RECENT_PROJECTS_STORAGE_KEY);
+    if (!savedProjects) return [];
+    const parsed = JSON.parse(savedProjects) as RecentProject[];
+    return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+};
+
+const loadProductUsage = (): ProductUsage => {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const savedUsage = window.localStorage.getItem(PRODUCT_USAGE_STORAGE_KEY);
+    if (!savedUsage) return {};
+    const parsed = JSON.parse(savedUsage) as ProductUsage;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
   }
 };
 
@@ -227,6 +255,7 @@ type SmartProfile = {
 };
 
 type MissionId = "shirt" | "mug" | "a4" | "edit";
+type HomeView = "dashboard" | "mission";
 
 type MissionOption = {
   id: MissionId;
@@ -235,6 +264,19 @@ type MissionOption = {
   detail: string;
   icon: typeof Shirt;
 };
+
+type RecentProject = {
+  id: string;
+  name: string;
+  destinationId: DestinationPreset["id"];
+  destinationLabel: string;
+  sheetLabel: string;
+  imageCount: number;
+  updatedAt: number;
+  missionTitle: string;
+};
+
+type ProductUsage = Partial<Record<DestinationPreset["id"], number>>;
 
 const smartProfiles: SmartProfile[] = [
   {
@@ -429,6 +471,13 @@ const mmToMeasure = (value: number, unit: Settings["measureUnit"]) =>
   unit === "cm" ? value / 10 : unit === "in" ? value / 25.4 : value;
 const formatMeasure = (value: number, unit: Settings["measureUnit"]) =>
   Number(mmToMeasure(value, unit).toFixed(unit === "mm" ? 0 : 2));
+const formatDashboardDate = (timestamp: number) =>
+  new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(timestamp);
 const sheetRotationLabels: Record<Settings["sheetRotationDeg"], string> = {
   0: "Retrato",
   90: "Paisagem",
@@ -441,7 +490,10 @@ export const App = () => {
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [checkedImageIds, setCheckedImageIds] = useState<string[]>([]);
   const [settings, setSettings] = useState<Settings>(loadInitialSettings);
+  const [homeView, setHomeView] = useState<HomeView>("dashboard");
   const [activeMission, setActiveMission] = useState<MissionId | null>(null);
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>(loadRecentProjects);
+  const [productUsage, setProductUsage] = useState<ProductUsage>(loadProductUsage);
   const [history, setHistory] = useState<Settings[]>([]);
   const [redoHistory, setRedoHistory] = useState<Settings[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -489,6 +541,14 @@ export const App = () => {
     () => missionOptions.find((mission) => mission.id === activeMission) ?? null,
     [activeMission]
   );
+  const mostUsedProducts = useMemo(() => {
+    const rankedProducts = destinationPresets
+      .filter((item) => item.id !== "custom")
+      .map((item) => ({ item, count: productUsage[item.id] ?? 0 }))
+      .sort((a, b) => b.count - a.count);
+    return rankedProducts.filter((entry) => entry.count > 0).slice(0, 3);
+  }, [productUsage]);
+  const favoriteProduct = mostUsedProducts[0]?.item ?? destinationPresets.find((item) => item.id === settings.destinationId) ?? destinationPresets[0];
   const visibleCrop = pendingCrop ?? {
     top: settings.cropTop,
     right: settings.cropRight,
@@ -1163,6 +1223,14 @@ export const App = () => {
     void handleFiles(event.dataTransfer.files);
   };
 
+  const recordProductUsage = (destinationId: DestinationPreset["id"]) => {
+    if (destinationId === "custom") return;
+    setProductUsage((current) => ({
+      ...current,
+      [destinationId]: (current[destinationId] ?? 0) + 1
+    }));
+  };
+
   const startMission = (missionId: MissionId) => {
     const missionSettings: Record<MissionId, Partial<Settings>> = {
       shirt: {
@@ -1240,6 +1308,9 @@ export const App = () => {
     };
     const mission = missionOptions.find((item) => item.id === missionId);
     setActiveMission(missionId);
+    setHomeView("mission");
+    const destinationId = missionSettings[missionId].destinationId;
+    if (destinationId) recordProductUsage(destinationId);
     updateSettings({
       ...missionSettings[missionId],
       cropTop: 0,
@@ -1258,6 +1329,7 @@ export const App = () => {
   };
 
   const handleDestination = (item: DestinationPreset) => {
+    recordProductUsage(item.id);
     updateSettings({
       destinationId: item.id,
       sheetId: item.recommendedSheet,
@@ -1267,6 +1339,7 @@ export const App = () => {
 
   const applySmartProfile = (profile: SmartProfile) => {
     const profileDestination = destinationPresets.find((item) => item.id === profile.destinationId) ?? destinationPresets[0];
+    recordProductUsage(profile.destinationId);
     updateSettings({
       destinationId: profile.destinationId,
       sheetId: profileDestination.recommendedSheet,
@@ -1807,6 +1880,38 @@ export const App = () => {
   }, [settings]);
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(PRODUCT_USAGE_STORAGE_KEY, JSON.stringify(productUsage));
+    } catch {
+      // Dashboard metrics should never block the editor.
+    }
+  }, [productUsage]);
+
+  useEffect(() => {
+    if (!sourceImage) return;
+    const nextProject: RecentProject = {
+      id: sourceImage.id,
+      name: sourceImage.name,
+      destinationId: destination.id,
+      destinationLabel: destination.label,
+      sheetLabel: sheet.label,
+      imageCount: images.length,
+      updatedAt: Date.now(),
+      missionTitle: currentMission?.title ?? "Trabalho livre"
+    };
+
+    setRecentProjects((current) => {
+      const nextProjects = [nextProject, ...current.filter((project) => project.id !== nextProject.id)].slice(0, 5);
+      try {
+        window.localStorage.setItem(RECENT_PROJECTS_STORAGE_KEY, JSON.stringify(nextProjects));
+      } catch {
+        // Recent projects are helpful context, not required data.
+      }
+      return nextProjects;
+    });
+  }, [currentMission?.title, destination.id, destination.label, images.length, sheet.label, sourceImage]);
+
+  useEffect(() => {
     imagesRef.current = images;
   }, [images]);
 
@@ -1839,6 +1944,110 @@ export const App = () => {
 
   const insights = sourceImage ? getImageInsights(sourceImage) : [];
   const canExport = Boolean(sourceImage && plan);
+
+  if (!activeMission && homeView === "dashboard") {
+    return (
+      <main className="dashboard-shell">
+        <section className="dashboard-panel" aria-labelledby="dashboard-title">
+          <header className="dashboard-header">
+            <div className="mission-brand">
+              <div className="brand-mark">N</div>
+              <div>
+                <span>Nitro Studio</span>
+                <strong>Painel do Dia</strong>
+              </div>
+            </div>
+            <button className="dashboard-start-button" type="button" onClick={() => setHomeView("mission")}>
+              <Plus size={22} />
+              Começar novo trabalho
+            </button>
+          </header>
+
+          <div className="dashboard-hero">
+            <div>
+              <span>Bom trabalho por aqui</span>
+              <h1 id="dashboard-title">Seu estúdio pronto para produzir.</h1>
+              <p>Veja o que está mais usado, confira a impressora atual e comece uma nova preparação em poucos cliques.</p>
+            </div>
+            <div className="dashboard-printer-card">
+              <Printer size={24} />
+              <span>Impressora selecionada</span>
+              <strong>{settings.printerModel}</strong>
+              <small>{settings.printQuality} · {settings.paperType}</small>
+            </div>
+          </div>
+
+          <div className="dashboard-grid">
+            <section className="dashboard-card dashboard-card-wide">
+              <div className="dashboard-card-heading">
+                <Images size={18} />
+                <h2>Últimos projetos</h2>
+              </div>
+              {recentProjects.length ? (
+                <div className="recent-list">
+                  {recentProjects.slice(0, 4).map((project) => (
+                    <button
+                      className="recent-project"
+                      key={`${project.id}-${project.updatedAt}`}
+                      type="button"
+                      onClick={() => {
+                        setHomeView("mission");
+                        setMessage(`Use ${project.destinationLabel} como referência e importe a arte novamente.`);
+                      }}
+                    >
+                      <strong>{project.name}</strong>
+                      <span>{project.destinationLabel} · {project.sheetLabel}</span>
+                      <small>{project.imageCount} arte(s) · {formatDashboardDate(project.updatedAt)}</small>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="dashboard-empty">
+                  <ImagePlus size={24} />
+                  <strong>Nenhum projeto recente ainda</strong>
+                  <span>Quando você importar uma arte, o Nitro registra este resumo aqui.</span>
+                </div>
+              )}
+            </section>
+
+            <section className="dashboard-card">
+              <div className="dashboard-card-heading">
+                <Target size={18} />
+                <h2>Produtos mais usados</h2>
+              </div>
+              {mostUsedProducts.length ? (
+                <div className="product-usage-list">
+                  {mostUsedProducts.map(({ item, count }) => (
+                    <div className="usage-row" key={item.id}>
+                      <span>{destinationIcons[item.id]}</span>
+                      <strong>{item.label}</strong>
+                      <small>{count} uso(s)</small>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="dashboard-empty compact">
+                  <span>Escolha uma missão para o Nitro aprender seus produtos mais usados.</span>
+                </div>
+              )}
+            </section>
+
+            <section className="dashboard-card">
+              <div className="dashboard-card-heading">
+                <BadgeCheck size={18} />
+                <h2>Perfil favorito</h2>
+              </div>
+              <div className="favorite-profile">
+                <span>{destinationIcons[favoriteProduct.id]}</span>
+                <strong>{favoriteProduct.label}</strong>
+                <small>{favoriteProduct.intent}</small>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   if (!activeMission) {
     return (
