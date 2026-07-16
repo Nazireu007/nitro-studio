@@ -47,6 +47,16 @@ import {
 } from "./lib/printPresets";
 import { createPrintPlan } from "./lib/printPlan";
 import { downloadCanvasPng, renderPrintCanvas } from "./lib/renderPrint";
+import { FontRecord } from "./fonts/FontCatalog";
+import { FontManager } from "./fonts/FontManager";
+import {
+  addTextObject,
+  deleteTextObject,
+  duplicateTextObject,
+  resizeTextObject,
+  updateTextObject
+} from "./text/TextController";
+import { TextObject } from "./text/TextModel";
 
 type Settings = {
   destinationId: DestinationPreset["id"];
@@ -137,6 +147,7 @@ const initialSettings: Settings = {
 const SETTINGS_STORAGE_KEY = "nitro-studio-settings";
 const RECENT_PROJECTS_STORAGE_KEY = "nitro-studio-recent-projects";
 const PRODUCT_USAGE_STORAGE_KEY = "nitro-studio-product-usage";
+const FONT_PREFS_STORAGE_KEY = "nitro-studio-font-preferences";
 
 const normalizeSettings = (settings: Partial<Settings>): Settings => {
   const next = {
@@ -517,6 +528,27 @@ export const App = () => {
     displayScale: number;
     pageFlipped: boolean;
   } | null>(null);
+  const [textObjects, setTextObjects] = useState<TextObject[]>([]);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [textHistory, setTextHistory] = useState<TextObject[][]>([]);
+  const [textRedoHistory, setTextRedoHistory] = useState<TextObject[][]>([]);
+  const [textDrag, setTextDrag] = useState<{
+    id: string;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
+  const [textResizeDrag, setTextResizeDrag] = useState<{
+    id: string;
+    startX: number;
+    originWidth: number;
+    originFontSize: number;
+  } | null>(null);
+  const [fonts, setFonts] = useState<FontRecord[]>([]);
+  const [fontSearch, setFontSearch] = useState("");
+  const [fontCategory, setFontCategory] = useState<string>("Todas");
   const [pendingCrop, setPendingCrop] = useState<CropArea | null>(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
@@ -525,6 +557,8 @@ export const App = () => {
   const printPreviewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvasWrapRef = useRef<HTMLDivElement | null>(null);
   const quickFileInputRef = useRef<HTMLInputElement | null>(null);
+  const fontFileInputRef = useRef<HTMLInputElement | null>(null);
+  const fontManagerRef = useRef(new FontManager());
   const imagesRef = useRef<ProjectImage[]>([]);
   const [previewBounds, setPreviewBounds] = useState({ width: 920, height: 680 });
   const [currentPreviewScale, setCurrentPreviewScale] = useState(1);
@@ -537,6 +571,23 @@ export const App = () => {
     [checkedImageIds, images]
   );
   const montageImages = checkedImages.length > 1 ? checkedImages : [];
+  const selectedText = useMemo(
+    () => textObjects.find((item) => item.id === selectedTextId) ?? null,
+    [selectedTextId, textObjects]
+  );
+  const fontCategories = useMemo(() => ["Todas", "Favoritas", "Recentes", "Minhas fontes", ...Array.from(new Set(fonts.map((font) => font.category)))], [fonts]);
+  const filteredFonts = useMemo(() => {
+    const search = fontSearch.trim().toLowerCase();
+    return fonts
+      .filter((font) => {
+        if (fontCategory === "Favoritas" && !font.favorite) return false;
+        if (fontCategory === "Recentes" && !font.lastUsedAt) return false;
+        if (fontCategory === "Minhas fontes" && font.source !== "imported") return false;
+        if (!["Todas", "Favoritas", "Recentes", "Minhas fontes"].includes(fontCategory) && font.category !== fontCategory) return false;
+        return !search || font.name.toLowerCase().includes(search) || font.family.toLowerCase().includes(search);
+      })
+      .sort((a, b) => (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0) || a.name.localeCompare(b.name));
+  }, [fontCategory, fontSearch, fonts]);
   const currentMission = useMemo(
     () => missionOptions.find((mission) => mission.id === activeMission) ?? null,
     [activeMission]
@@ -598,10 +649,11 @@ export const App = () => {
   );
 
   const plan = useMemo(() => {
-    if (!sourceImage || !croppedImageSize) return null;
+    if (!sourceImage && !textObjects.length) return null;
+    const fallbackSize = Math.max(600, Math.round(settings.dpi * 4));
     return createPrintPlan({
-      imageWidth: croppedImageSize.width,
-      imageHeight: croppedImageSize.height,
+      imageWidth: croppedImageSize?.width ?? fallbackSize,
+      imageHeight: croppedImageSize?.height ?? fallbackSize,
       destination,
       sheet,
       fitMode: settings.fitMode,
@@ -615,7 +667,7 @@ export const App = () => {
       imageScaleY: settings.imageScaleY,
       mirror: settings.mirror
     });
-  }, [croppedImageSize, destination, settings, sheet, sourceImage]);
+  }, [croppedImageSize, destination, settings, sheet, sourceImage, textObjects.length]);
 
   const resizeFrameGeometry = useMemo<ResizeFrameGeometry | null>(() => {
     if (!plan || montageImages.length > 1) return null;
@@ -683,7 +735,25 @@ export const App = () => {
     });
   };
 
+  const updateTextObjects = (next: TextObject[] | ((current: TextObject[]) => TextObject[])) => {
+    setTextObjects((current) => {
+      setTextHistory((items) => [current, ...items].slice(0, 20));
+      setTextRedoHistory([]);
+      return typeof next === "function" ? next(current) : next;
+    });
+  };
+
   const undo = () => {
+    const [previousTexts, ...textRest] = textHistory;
+    if (previousTexts) {
+      setTextObjects((current) => {
+        setTextRedoHistory((items) => [current, ...items].slice(0, 20));
+        setTextHistory(textRest);
+        return previousTexts;
+      });
+      return;
+    }
+
     const [previous, ...rest] = history;
     if (!previous) return;
     setSettings((current) => {
@@ -694,6 +764,16 @@ export const App = () => {
   };
 
   const redo = () => {
+    const [nextTexts, ...textRest] = textRedoHistory;
+    if (nextTexts) {
+      setTextObjects((current) => {
+        setTextHistory((items) => [current, ...items].slice(0, 20));
+        setTextRedoHistory(textRest);
+        return nextTexts;
+      });
+      return;
+    }
+
     const [next, ...rest] = redoHistory;
     if (!next) return;
     setSettings((current) => {
@@ -751,7 +831,8 @@ export const App = () => {
       technicalLabel: settings.technicalLabel
     },
     pageRotationDeg: (settings.sheetRotationDeg === 180 || settings.sheetRotationDeg === 270 ? 180 : 0) as 0 | 180,
-    previewScale
+    previewScale,
+    textObjects
   });
 
   const resetCrop = () => {
@@ -1142,6 +1223,164 @@ export const App = () => {
     setMessage("Posição da arte ajustada no papel.");
   };
 
+  const addTextToSheet = () => {
+    const sheetWidth = plan?.sheetPx.width ?? Math.round((sheet.widthMm / 25.4) * settings.dpi);
+    const sheetHeight = plan?.sheetPx.height ?? Math.round((sheet.heightMm / 25.4) * settings.dpi);
+    const nextTexts = addTextObject(textObjects, sheetWidth, sheetHeight);
+    const created = nextTexts[nextTexts.length - 1];
+    updateTextObjects(nextTexts);
+    setSelectedTextId(created.id);
+    setEditingTextId(created.id);
+    setMessage("Texto adicionado. Dê dois cliques na folha para editar direto.");
+  };
+
+  const updateSelectedText = (patch: Partial<TextObject>) => {
+    if (!selectedText) return;
+    updateTextObjects((current) => updateTextObject(current, selectedText.id, patch));
+  };
+
+  const deleteSelectedText = () => {
+    if (!selectedText) return;
+    updateTextObjects((current) => deleteTextObject(current, selectedText.id));
+    setSelectedTextId(null);
+    setEditingTextId(null);
+    setMessage("Texto excluído.");
+  };
+
+  const duplicateSelectedText = () => {
+    if (!selectedText) return;
+    const nextTexts = duplicateTextObject(textObjects, selectedText.id);
+    updateTextObjects(nextTexts);
+    setSelectedTextId(nextTexts[nextTexts.length - 1]?.id ?? selectedText.id);
+    setMessage("Texto duplicado.");
+  };
+
+  const fitSelectedTextToArea = () => {
+    if (!selectedText || !plan) return;
+    const target = plan.targetPx;
+    updateTextObjects((current) =>
+      updateTextObject(current, selectedText.id, {
+        x: Math.round(target.x + target.width / 2),
+        y: Math.round(target.y + target.height / 2),
+        width: Math.round(target.width * 0.86),
+        fontSize: Math.max(18, Math.round(Math.min(target.width / Math.max(4, selectedText.content.length * 0.52), target.height * 0.28)))
+      })
+    );
+    setMessage("Texto encaixado visualmente na área útil.");
+  };
+
+  const fillSelectedTextWidth = () => {
+    if (!selectedText || !plan) return;
+    const width = Math.round(plan.targetPx.width * 0.9);
+    const fontSize = Math.max(14, Math.round(width / Math.max(4, selectedText.content.replace(/\s+/g, "").length * 0.56)));
+    updateSelectedText({ width, fontSize });
+    setMessage("Texto preparado para preencher a largura sem distorcer letras.");
+  };
+
+  const selectFontForText = (font: FontRecord) => {
+    if (!selectedText) return;
+    updateSelectedText({ fontFamily: font.family });
+    setFonts((current) => current.map((item) => (item.id === font.id ? { ...item, lastUsedAt: Date.now() } : item)));
+  };
+
+  const toggleFontFavorite = (font: FontRecord) => {
+    setFonts((current) => current.map((item) => (item.id === font.id ? { ...item, favorite: !item.favorite } : item)));
+    if (font.source === "imported") {
+      void fontManagerRef.current.saveFont({ ...font, favorite: !font.favorite });
+    }
+  };
+
+  const handleFontImport = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      const font = await fontManagerRef.current.importFont(file, fonts);
+      setFonts((current) => [...current, font]);
+      if (selectedText) updateSelectedText({ fontFamily: font.family });
+      setMessage(`Fonte ${font.name} importada localmente. Use somente fontes autorizadas.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não consegui importar a fonte.");
+    }
+  };
+
+  const handleTextPointerDown = (text: TextObject, event: PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedTextId(text.id);
+    setTextHistory((items) => [textObjects, ...items].slice(0, 20));
+    setTextRedoHistory([]);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setTextDrag({
+      id: text.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: text.x,
+      originY: text.y
+    });
+  };
+
+  const handleTextPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!textDrag || !plan) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const deltaX = (event.clientX - textDrag.startX) / currentPreviewScale;
+    const deltaY = (event.clientY - textDrag.startY) / currentPreviewScale;
+    setTextObjects((current) =>
+      updateTextObject(current, textDrag.id, {
+        x: Math.round(textDrag.originX + deltaX),
+        y: Math.round(textDrag.originY + deltaY)
+      })
+    );
+  };
+
+  const handleTextPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (!textDrag) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setTextDrag(null);
+  };
+
+  const handleTextResizePointerDown = (text: TextObject, event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedTextId(text.id);
+    setTextHistory((items) => [textObjects, ...items].slice(0, 20));
+    setTextRedoHistory([]);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setTextResizeDrag({
+      id: text.id,
+      startX: event.clientX,
+      originWidth: text.width,
+      originFontSize: text.fontSize
+    });
+  };
+
+  const handleTextResizePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!textResizeDrag) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const delta = (event.clientX - textResizeDrag.startX) / currentPreviewScale;
+    const widthRatio = Math.max(0.25, (textResizeDrag.originWidth + delta) / textResizeDrag.originWidth);
+    setTextObjects((current) =>
+      resizeTextObject(current, textResizeDrag.id, textResizeDrag.originWidth * widthRatio, textResizeDrag.originFontSize * widthRatio)
+    );
+  };
+
+  const handleTextResizePointerUp = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!textResizeDrag) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setTextResizeDrag(null);
+  };
+
   const handleResizePointerDown = (handle: ResizeHandle, event: PointerEvent<HTMLButtonElement>) => {
     if (!plan || montageImages.length > 1 || !previewCanvasRef.current || !resizeFrameGeometry) return;
     event.preventDefault();
@@ -1356,14 +1595,15 @@ export const App = () => {
   };
 
   const handleExport = async () => {
-    if (!sourceImage || !plan) return;
+    if ((!sourceImage && !textObjects.length) || !plan) return;
     setIsPreparing(true);
     setMessage(null);
     try {
-    const canvas = document.createElement("canvas");
-    await renderPrintCanvas(canvas, plan, getRenderOptions());
-    const safeName = sourceImage.name.replace(/\.[^.]+$/, "").replace(/[^a-z0-9_-]+/gi, "-");
-    const filename = `nitro-${safeName}-${destination.id}-${settings.dpi}dpi`;
+      const canvas = document.createElement("canvas");
+      await renderPrintCanvas(canvas, plan, getRenderOptions());
+      const baseName = sourceImage?.name ?? selectedText?.content ?? "letreiro";
+      const safeName = baseName.replace(/\.[^.]+$/, "").replace(/[^a-z0-9_-]+/gi, "-");
+      const filename = `nitro-${safeName}-${destination.id}-${settings.dpi}dpi`;
 
       if (settings.exportFormat === "pdf") {
         const { jsPDF } = await import("jspdf");
@@ -1390,7 +1630,7 @@ export const App = () => {
   };
 
   const handlePrintNow = async () => {
-    if (!sourceImage || !plan) return;
+    if ((!sourceImage && !textObjects.length) || !plan) return;
     const printWindow = window.open("", "nitro-print", "width=980,height=720");
 
     if (!printWindow) {
@@ -1615,13 +1855,13 @@ export const App = () => {
       resolve: () => void;
     }> = [];
 
-    if (!sourceImage) {
+    if (!sourceImage && !textObjects.length) {
       items.push({
         problem: "Nenhuma arte carregada",
-        cause: "O Nitro precisa de uma imagem para analisar proporção, resolução e destino.",
-        recommendation: "Adicione uma ou mais artes ao projeto.",
-        actionLabel: "Adicionar arte",
-        resolve: () => setMessage("Use o botão Adicionar em Artes do projeto.")
+        cause: "O Nitro precisa de uma imagem ou texto para preparar a folha.",
+        recommendation: "Adicione uma arte ou crie um letreiro com Adicionar texto.",
+        actionLabel: "Adicionar texto",
+        resolve: addTextToSheet
       });
       return items;
     }
@@ -1697,7 +1937,7 @@ export const App = () => {
     }
 
     return items.slice(0, 4);
-  }, [pendingCrop, plan, settings, sourceImage]);
+  }, [pendingCrop, plan, settings, sourceImage, textObjects.length]);
 
   const simulationItems = useMemo(() => {
     if (!plan) return [];
@@ -1838,7 +2078,7 @@ export const App = () => {
   }, [assistantItems, destination.heightMm, destination.label, destination.widthMm, plan, settings.destinationId, settings.exportFormat, sourceImage]);
 
   useEffect(() => {
-    if (!sourceImage || !plan || !previewCanvasRef.current) return;
+    if ((!sourceImage && !textObjects.length) || !plan || !previewCanvasRef.current) return;
     const scale = Math.min(
       1,
       Math.max(0.08, (previewBounds.width - 42) / plan.sheetPx.width),
@@ -1848,15 +2088,15 @@ export const App = () => {
     void renderPrintCanvas(previewCanvasRef.current, plan, getRenderOptions(scale)).catch((error) =>
       setMessage(error instanceof Error ? error.message : "Erro no preview.")
     );
-  }, [montageImages, plan, previewBounds, settings, sourceImage]);
+  }, [montageImages, plan, previewBounds, settings, sourceImage, textObjects]);
 
   useEffect(() => {
-    if (!isPrintPreviewOpen || !sourceImage || !plan || !printPreviewCanvasRef.current) return;
+    if (!isPrintPreviewOpen || (!sourceImage && !textObjects.length) || !plan || !printPreviewCanvasRef.current) return;
     const scale = Math.min(0.34, Math.max(0.08, 520 / plan.sheetPx.width), Math.max(0.08, 620 / plan.sheetPx.height));
     void renderPrintCanvas(printPreviewCanvasRef.current, plan, getRenderOptions(scale)).catch((error) =>
       setMessage(error instanceof Error ? error.message : "Erro na simulação de impressão.")
     );
-  }, [isPrintPreviewOpen, montageImages, plan, settings, sourceImage]);
+  }, [isPrintPreviewOpen, montageImages, plan, settings, sourceImage, textObjects]);
 
   useEffect(() => {
     if (!canvasWrapRef.current) return;
@@ -1870,6 +2110,37 @@ export const App = () => {
     observer.observe(canvasWrapRef.current);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    const loadFonts = async () => {
+      const loadedFonts = await fontManagerRef.current.listFonts();
+      await fontManagerRef.current.loadImportedFonts();
+      try {
+        const preferences = JSON.parse(window.localStorage.getItem(FONT_PREFS_STORAGE_KEY) ?? "{}") as Record<string, Pick<FontRecord, "favorite" | "lastUsedAt">>;
+        setFonts(loadedFonts.map((font) => ({ ...font, ...preferences[font.id] })));
+      } catch {
+        setFonts(loadedFonts);
+      }
+    };
+    void loadFonts();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const preferences = fonts.reduce<Record<string, Pick<FontRecord, "favorite" | "lastUsedAt">>>((result, font) => {
+        if (font.favorite || font.lastUsedAt) {
+          result[font.id] = {
+            favorite: font.favorite,
+            lastUsedAt: font.lastUsedAt
+          };
+        }
+        return result;
+      }, {});
+      window.localStorage.setItem(FONT_PREFS_STORAGE_KEY, JSON.stringify(preferences));
+    } catch {
+      // Font preferences are convenience metadata.
+    }
+  }, [fonts]);
 
   useEffect(() => {
     try {
@@ -1943,7 +2214,8 @@ export const App = () => {
   }, [resizeFrameGeometry, settings.rotationDeg]);
 
   const insights = sourceImage ? getImageInsights(sourceImage) : [];
-  const canExport = Boolean(sourceImage && plan);
+  const canExport = Boolean((sourceImage || textObjects.length) && plan);
+  const hasPrintableContent = Boolean((sourceImage || textObjects.length) && plan);
 
   if (!activeMission && homeView === "dashboard") {
     return (
@@ -2116,10 +2388,10 @@ export const App = () => {
             <WandSparkles size={18} />
             Preparar com Nitro
           </button>
-          <button className="icon-button" onClick={undo} disabled={!history.length} title="Desfazer ajuste">
+          <button className="icon-button" onClick={undo} disabled={!history.length && !textHistory.length} title="Desfazer ajuste">
             <RotateCcw size={18} />
           </button>
-          <button className="icon-button" onClick={redo} disabled={!redoHistory.length} title="Refazer ajuste">
+          <button className="icon-button" onClick={redo} disabled={!redoHistory.length && !textRedoHistory.length} title="Refazer ajuste">
             <Redo2 size={18} />
           </button>
         </div>
@@ -2346,6 +2618,132 @@ export const App = () => {
                   />
                 </label>
               </div>
+            )}
+          </section>
+
+          <section className="panel compact-panel text-panel">
+            <div className="panel-heading">
+              <span>
+                <FileText size={18} />
+                <h2>Texto</h2>
+              </span>
+              <button className="mini-button" onClick={addTextToSheet}>
+                <Plus size={15} />
+                Adicionar
+              </button>
+            </div>
+            <input
+              ref={fontFileInputRef}
+              className="hidden-input"
+              type="file"
+              accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
+              onChange={handleFontImport}
+            />
+            {selectedText ? (
+              <div className="text-controls">
+                <label className="field">
+                  <span>Editar texto</span>
+                  <textarea value={selectedText.content} rows={3} onChange={(event) => updateSelectedText({ content: event.target.value })} />
+                </label>
+                <div className="text-row">
+                  <label className="field">
+                    <span>Fonte</span>
+                    <select value={selectedText.fontFamily} onChange={(event) => updateSelectedText({ fontFamily: event.target.value })}>
+                      {fonts.map((font) => <option key={font.id} value={font.family}>{font.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Tamanho</span>
+                    <input type="number" min="8" max="420" value={selectedText.fontSize} onChange={(event) => updateSelectedText({ fontSize: Number(event.target.value) })} />
+                  </label>
+                </div>
+                <div className="text-row">
+                  <label className="field">
+                    <span>Cor</span>
+                    <input type="color" value={selectedText.color} onChange={(event) => updateSelectedText({ color: event.target.value })} />
+                  </label>
+                  <label className="field">
+                    <span>Alinhamento</span>
+                    <select value={selectedText.align} onChange={(event) => updateSelectedText({ align: event.target.value as TextObject["align"] })}>
+                      <option value="left">Esquerda</option>
+                      <option value="center">Centro</option>
+                      <option value="right">Direita</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="tool-grid compact">
+                  <button className={selectedText.bold ? "tool-button is-active" : "tool-button"} onClick={() => updateSelectedText({ bold: !selectedText.bold })}>B</button>
+                  <button className={selectedText.italic ? "tool-button is-active" : "tool-button"} onClick={() => updateSelectedText({ italic: !selectedText.italic })}>I</button>
+                  <button className={selectedText.underline ? "tool-button is-active" : "tool-button"} onClick={() => updateSelectedText({ underline: !selectedText.underline })}>U</button>
+                  <button className="tool-button" onClick={fitSelectedTextToArea}>Encaixar</button>
+                  <button className="tool-button" onClick={fillSelectedTextWidth}>Largura</button>
+                  <button className="tool-button" onClick={duplicateSelectedText}>Duplicar</button>
+                </div>
+                <details className="more-adjustments">
+                  <summary>Mais ajustes</summary>
+                  <label className="range-field">
+                    <span>Espaçamento <strong>{selectedText.letterSpacing}px</strong></span>
+                    <input type="range" min="-4" max="28" value={selectedText.letterSpacing} onChange={(event) => updateSelectedText({ letterSpacing: Number(event.target.value) })} />
+                  </label>
+                  <label className="range-field">
+                    <span>Rotação <strong>{selectedText.rotation}°</strong></span>
+                    <input type="range" min="-180" max="180" value={selectedText.rotation} onChange={(event) => updateSelectedText({ rotation: Number(event.target.value) })} />
+                  </label>
+                  <label className="toggle">
+                    <input type="checkbox" checked={selectedText.outline.enabled} onChange={(event) => updateSelectedText({ outline: { ...selectedText.outline, enabled: event.target.checked } })} />
+                    Contorno
+                  </label>
+                  <div className="text-row">
+                    <label className="field">
+                      <span>Cor contorno</span>
+                      <input type="color" value={selectedText.outline.color} onChange={(event) => updateSelectedText({ outline: { ...selectedText.outline, color: event.target.value } })} />
+                    </label>
+                    <label className="field">
+                      <span>Espessura</span>
+                      <input type="number" min="0" max="40" value={selectedText.outline.width} onChange={(event) => updateSelectedText({ outline: { ...selectedText.outline, width: Number(event.target.value) } })} />
+                    </label>
+                  </div>
+                  <label className="toggle">
+                    <input type="checkbox" checked={selectedText.shadow.enabled} onChange={(event) => updateSelectedText({ shadow: { ...selectedText.shadow, enabled: event.target.checked } })} />
+                    Sombra
+                  </label>
+                </details>
+                <div className="font-manager">
+                  <div className="text-row">
+                    <input className="font-search" placeholder="Buscar fonte" value={fontSearch} onChange={(event) => setFontSearch(event.target.value)} />
+                    <select value={fontCategory} onChange={(event) => setFontCategory(event.target.value)}>
+                      {fontCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+                    </select>
+                  </div>
+                  <button className="text-button full" onClick={() => fontFileInputRef.current?.click()}>Adicionar minhas fontes</button>
+                  <small>Use somente fontes que você possui autorização para utilizar.</small>
+                  <div className="font-list">
+                    {filteredFonts.slice(0, 10).map((font) => (
+                      <div
+                        className={selectedText.fontFamily === font.family ? "font-option is-selected" : "font-option"}
+                        key={font.id}
+                        role="button"
+                        tabIndex={0}
+                        style={{ fontFamily: font.family }}
+                        onClick={() => selectFontForText(font)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") selectFontForText(font);
+                        }}
+                      >
+                        <span>Nitro Studio</span>
+                        <small>{font.name}</small>
+                        <button type="button" className={font.favorite ? "font-star is-active" : "font-star"} onClick={(event) => { event.stopPropagation(); toggleFontFavorite(font); }}>★</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button className="danger-button full" onClick={deleteSelectedText}>
+                  <Trash2 size={16} />
+                  Excluir texto
+                </button>
+              </div>
+            ) : (
+              <div className="quiet-state">Adicione ou selecione um texto para editar letreiros.</div>
             )}
           </section>
 
@@ -2858,6 +3256,10 @@ export const App = () => {
               ))}
             </div>
             <div className="stage-actions">
+              <button className="secondary-button stage-text-button" onClick={addTextToSheet}>
+                <FileText size={17} />
+                Adicionar texto
+              </button>
               {montageImages.length > 1 && (
                 <div className="stage-status montage">
                   <strong>{montageImages.length}</strong>
@@ -2881,26 +3283,26 @@ export const App = () => {
               </label>
             </div>
           </div>
-          {sourceImage && plan && montageImages.length <= 1 && (
+          {hasPrintableContent && montageImages.length <= 1 && (
             <div className="stage-hint">
               <Move size={15} />
-              Arraste a arte ou puxe as alças da parte visível para esticar o preenchimento.
+              Arraste a arte, selecione textos ou puxe as alças para ajustar.
             </div>
           )}
 
           <div className="canvas-wrap" ref={canvasWrapRef}>
-            {sourceImage && plan ? (
+            {hasPrintableContent && plan ? (
               <div className={resizeDrag ? "canvas-interaction is-resizing" : "canvas-interaction"} style={canvasInteractionStyle}>
                 <canvas
                   className={positionDrag ? "is-positioning" : ""}
                   ref={previewCanvasRef}
                   aria-label="Preview de impressão"
-                  onPointerDown={handlePreviewPointerDown}
-                  onPointerMove={handlePreviewPointerMove}
-                  onPointerUp={handlePreviewPointerUp}
+                  onPointerDown={sourceImage ? handlePreviewPointerDown : undefined}
+                  onPointerMove={sourceImage ? handlePreviewPointerMove : undefined}
+                  onPointerUp={sourceImage ? handlePreviewPointerUp : undefined}
                   onPointerCancel={() => setPositionDrag(null)}
                 />
-                {imageFrameStyle && montageImages.length <= 1 && (
+                {imageFrameStyle && montageImages.length <= 1 && sourceImage && (
                   <div className="resize-frame" style={imageFrameStyle} aria-hidden="true">
                     {(["top-left", "top", "top-right", "right", "bottom-right", "bottom", "bottom-left", "left"] as const).map((handle) => (
                       <button
@@ -2916,6 +3318,67 @@ export const App = () => {
                     ))}
                   </div>
                 )}
+                <div className="text-layer" aria-label="Textos da arte">
+                  {textObjects.map((text) => {
+                    const pageFlipped = settings.sheetRotationDeg === 180 || settings.sheetRotationDeg === 270;
+                    const displayX = pageFlipped ? plan.sheetPx.width - text.x : text.x;
+                    const displayY = pageFlipped ? plan.sheetPx.height - text.y : text.y;
+                    return (
+                      <div
+                        className={selectedTextId === text.id ? "text-object is-selected" : "text-object"}
+                        key={text.id}
+                        style={{
+                          left: `${displayX * currentPreviewScale}px`,
+                          top: `${displayY * currentPreviewScale}px`,
+                          width: `${text.width * currentPreviewScale}px`,
+                          color: text.color,
+                          fontFamily: text.fontFamily,
+                          fontSize: `${text.fontSize * currentPreviewScale}px`,
+                          fontWeight: text.bold ? 800 : 500,
+                          fontStyle: text.italic ? "italic" : "normal",
+                          textDecoration: text.underline ? "underline" : "none",
+                          textAlign: text.align,
+                          letterSpacing: `${text.letterSpacing * currentPreviewScale}px`,
+                          opacity: text.opacity,
+                          transform: `translate(-50%, -50%) rotate(${text.rotation + (pageFlipped ? 180 : 0)}deg)`,
+                          textShadow: text.shadow.enabled ? `${text.shadow.offsetX * currentPreviewScale}px ${text.shadow.offsetY * currentPreviewScale}px ${text.shadow.blur * currentPreviewScale}px ${text.shadow.color}` : "none",
+                          WebkitTextStroke: text.outline.enabled ? `${text.outline.width * currentPreviewScale}px ${text.outline.color}` : "0 transparent"
+                        }}
+                        onPointerDown={(event) => editingTextId === text.id ? undefined : handleTextPointerDown(text, event)}
+                        onPointerMove={handleTextPointerMove}
+                        onPointerUp={handleTextPointerUp}
+                        onPointerCancel={() => setTextDrag(null)}
+                        onDoubleClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedTextId(text.id);
+                          setEditingTextId(text.id);
+                        }}
+                      >
+                        <span
+                          className="text-object-content"
+                          contentEditable={editingTextId === text.id}
+                          suppressContentEditableWarning
+                          onBlur={(event) => {
+                            updateTextObjects((current) => updateTextObject(current, text.id, { content: event.currentTarget.textContent || "" }));
+                            setEditingTextId(null);
+                          }}
+                        >
+                          {text.content}
+                        </span>
+                        {selectedTextId === text.id && editingTextId !== text.id && (
+                          <button
+                            className="text-resize-handle"
+                            type="button"
+                            onPointerDown={(event) => handleTextResizePointerDown(text, event)}
+                            onPointerMove={handleTextResizePointerMove}
+                            onPointerUp={handleTextResizePointerUp}
+                            onPointerCancel={handleTextResizePointerUp}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="empty-preview">

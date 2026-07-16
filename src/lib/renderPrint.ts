@@ -1,5 +1,7 @@
 import { FitMode } from "./printPresets";
 import { PrintPlan, Rect } from "./printPlan";
+import { renderTextObjects } from "../text/TextRenderer";
+import { TextObject } from "../text/TextModel";
 
 type RenderOptions = {
   sourceUrl: string;
@@ -37,6 +39,7 @@ type RenderOptions = {
   };
   pageRotationDeg?: 0 | 180;
   previewScale?: number;
+  textObjects?: TextObject[];
 };
 
 const loadImage = async (src: string) => {
@@ -282,7 +285,7 @@ export const renderPrintCanvas = async (
   plan: PrintPlan,
   options: RenderOptions
 ) => {
-  const image = await loadImage(options.sourceUrl);
+  const image = options.sourceUrl ? await loadImage(options.sourceUrl) : null;
   const montageImages = options.montageSources?.length
     ? await Promise.all(options.montageSources.map((source) => loadImage(source.url)))
     : [];
@@ -305,9 +308,13 @@ export const renderPrintCanvas = async (
   ctx.fillRect(0, 0, plan.sheetPx.width, plan.sheetPx.height);
 
   for (const placement of plan.placements) {
-    renderPlacement(ctx, image, montageImages, plan, placement, options);
+    if (image) {
+      renderPlacement(ctx, image, montageImages, plan, placement, options);
+    }
     drawGuides(ctx, plan, placement, options.production);
   }
+
+  renderTextObjects(ctx, plan, options.textObjects);
 
   if (options.production.technicalLabel) {
     drawTechnicalLabel(ctx, plan);
